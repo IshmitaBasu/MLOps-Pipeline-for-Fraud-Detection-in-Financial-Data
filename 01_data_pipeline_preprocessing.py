@@ -1,30 +1,24 @@
 # %% [markdown]
-# Purpose: overview of the preprocessing pipeline and the leakage-control boundary.
+# Purpose: create one clean preprocessed table for the later ML pipeline.
 # # 01 - Data Pipeline Preprocessing
 #
 # This file prepares the selected public fraud-detection dataset for the later ML pipeline.
 #
-# The aim here is not to train a model. This creates a clean, documented, and leakage-aware feature table that can be handed to the feature repository and reused by the ML pipeline.
+# The aim here is not to train a model. This creates one clean, documented, and leakage-aware table that can be reused by the next notebook or script.
 #
 # The file covers:
 #
 # 1. loading the raw transaction dataset,
-# 2. keeping an unchanged raw copy,
-# 3. checking schema, missing values, duplicates, class imbalance, and numeric ranges,
-# 4. applying only safe cleaning steps,
-# 5. creating deterministic row-level features,
-# 6. saving the processed feature table, schema, metadata, and data-quality report.
+# 2. checking schema, missing values, duplicates, class imbalance, and numeric ranges,
+# 3. applying only safe cleaning steps,
+# 4. creating deterministic row-level features,
+# 5. saving the final preprocessed table and data-quality report in this same folder.
 #
 # Train-test splitting, scaling, one-hot encoding, SMOTE, threshold tuning, and model training are intentionally left for the ML pipeline notebook, where they can be applied without data leakage.
 
 # %%
 # This cell imports the standard library and data-analysis packages used throughout the pipeline.
-from dataclasses import dataclass
-from datetime import datetime
 from pathlib import Path
-from textwrap import dedent
-import json
-import shutil
 
 import numpy as np
 import pandas as pd
@@ -34,7 +28,8 @@ import pandas as pd
 # This cell defines project paths, dataset names, expected schema, and the final columns to save.
 DEFAULT_BASE_DIR = Path(r"D:\Germany\Documents\Magdeburg\Semester Documents\Sem 5\Thesis\Code snippets") 
 DATASET_FILE_NAME = "financial_fraud_detection_dataset.csv"
-FEATURE_VERSION = "fraud_features_v1"
+OUTPUT_FILE_NAME = "gold_financial_fraud_detection_table.csv"
+DATA_QUALITY_REPORT_FILE_NAME = "data_quality_report_v1.md"
 
 DTYPE_MAP = {
     "transaction_id": "string",
@@ -109,23 +104,8 @@ COLUMNS_TO_KEEP = [
 
 
 # %%
-# This cell defines a typed container for all input, output, metadata, and report paths.
-@dataclass(frozen=True)
-class PipelinePaths:
-    base_dir: Path
-    raw_file: Path
-    raw_copy: Path
-    raw_dir: Path
-    interim_dir: Path
-    processed_dir: Path
-    feature_data_dir: Path
-    metadata_dir: Path
-    reports_dir: Path
-
-
-# %%
-# This cell builds the folder structure and returns all file paths needed by the pipeline.
-def build_paths(base_dir: Path = DEFAULT_BASE_DIR) -> PipelinePaths:
+# This cell finds the dataset and defines the output files.
+def build_paths(base_dir: Path = DEFAULT_BASE_DIR) -> tuple[Path, Path, Path]:
     raw_file = base_dir / DATASET_FILE_NAME
 
     # Useful when the script is run from the folder that contains the CSV.
@@ -133,58 +113,33 @@ def build_paths(base_dir: Path = DEFAULT_BASE_DIR) -> PipelinePaths:
         base_dir = Path.cwd()
         raw_file = base_dir / DATASET_FILE_NAME
 
-    data_dir = base_dir / "data"
-    raw_dir = data_dir / "raw"
-    interim_dir = data_dir / "interim"
-    processed_dir = data_dir / "processed"
-    feature_repo_dir = base_dir / "feature_repo"
-    feature_data_dir = feature_repo_dir / "data"
-    metadata_dir = feature_repo_dir / "metadata"
-    reports_dir = base_dir / "reports"
+    output_file = base_dir / OUTPUT_FILE_NAME
+    report_file = base_dir / DATA_QUALITY_REPORT_FILE_NAME
 
-    for folder in [raw_dir, interim_dir, processed_dir, feature_data_dir, metadata_dir, reports_dir]:
-        folder.mkdir(parents=True, exist_ok=True)
+    print("Dataset file found:", raw_file.exists())
+    print("Dataset path:", raw_file)
+    print("Gold table path:", output_file)
+    print("Data-quality report path:", report_file)
 
-    paths = PipelinePaths(
-        base_dir=base_dir,
-        raw_file=raw_file,
-        raw_copy=raw_dir / raw_file.name,
-        raw_dir=raw_dir,
-        interim_dir=interim_dir,
-        processed_dir=processed_dir,
-        feature_data_dir=feature_data_dir,
-        metadata_dir=metadata_dir,
-        reports_dir=reports_dir,
-    )
-
-    print("Dataset file found:", paths.raw_file.exists())
-    print("Dataset path:", paths.raw_file)
-    print("Project base folder:", paths.base_dir)
-
-    return paths
+    return raw_file, output_file, report_file
 
 
 # %%
-# This cell copies the raw dataset once, reads a small preview, and loads the full dataset.
-def keep_raw_copy(paths: PipelinePaths) -> None:
-    if not paths.raw_file.exists():
-        raise FileNotFoundError(f"The dataset file was not found. Please check that {DATASET_FILE_NAME} is in the BASE_DIR folder or in the same folder as this script.")
+# This cell reads a small preview and loads the full dataset.
+def read_sample(raw_file: Path) -> pd.DataFrame:
+    if not raw_file.exists():
+        raise FileNotFoundError(
+            f"The dataset file was not found. Please check that {DATASET_FILE_NAME} "
+            "is in the Code snippets folder or in the same folder as this script."
+        )
 
-    if not paths.raw_copy.exists():
-        shutil.copy2(paths.raw_file, paths.raw_copy)
-        print("Raw file copied to:", paths.raw_copy)
-    else:
-        print("Raw copy already exists:", paths.raw_copy)
-
-
-def read_sample(raw_copy: Path) -> pd.DataFrame:
-    sample = pd.read_csv(raw_copy, nrows=5)
+    sample = pd.read_csv(raw_file, nrows=5)
     print("Sample columns:", sample.columns.tolist())
     return sample
 
 
-def load_dataset(raw_copy: Path) -> pd.DataFrame:
-    df = pd.read_csv(raw_copy, dtype=DTYPE_MAP)
+def load_dataset(raw_file: Path) -> pd.DataFrame:
+    df = pd.read_csv(raw_file, dtype=DTYPE_MAP)
     print("Dataset shape:", df.shape)
     return df
 
@@ -337,147 +292,115 @@ def select_final_columns(df_features: pd.DataFrame) -> pd.DataFrame:
 
 
 # %%
-# This cell saves the processed feature table, feature schema, and preprocessing metadata.
-def save_processed_datasets(df_features: pd.DataFrame, paths: PipelinePaths) -> tuple[Path, Path]:
-    processed_file = paths.processed_dir / f"{FEATURE_VERSION}.parquet"
-    feature_store_file = paths.feature_data_dir / f"{FEATURE_VERSION}.parquet"
+# This cell saves the final preprocessed table and data-quality report.
+def save_gold_table(df_features: pd.DataFrame, output_file: Path) -> Path:
+    temporary_file = output_file.with_name(f"{output_file.stem}_temporary{output_file.suffix}")
 
     try:
-        df_features.to_parquet(processed_file, index=False)
-        df_features.to_parquet(feature_store_file, index=False)
-        print("Saved processed file:", processed_file)
-        print("Saved feature repository copy:", feature_store_file)
-    except ImportError:
-        processed_file = paths.processed_dir / f"{FEATURE_VERSION}.csv"
-        feature_store_file = paths.feature_data_dir / f"{FEATURE_VERSION}.csv"
+        df_features.to_csv(temporary_file, index=False)
+        temporary_file.replace(output_file)
+    except PermissionError as exc:
+        raise PermissionError(
+            f"Could not save {output_file}. Close the file if it is open in Excel, "
+            "VS Code, or another program, then run this script again. "
+            f"The completed temporary table is at {temporary_file}."
+        ) from exc
 
-        df_features.to_csv(processed_file, index=False)
-        df_features.to_csv(feature_store_file, index=False)
-
-        print("Parquet support is missing, so CSV files were saved instead.")
-        print("Saved processed file:", processed_file)
-        print("Saved feature repository copy:", feature_store_file)
-        print("To save parquet later, install pyarrow with: pip install pyarrow")
-
-    return processed_file, feature_store_file
+    print("Saved gold table:", output_file)
+    return output_file
 
 
-def save_feature_schema(df_features: pd.DataFrame, paths: PipelinePaths) -> Path:
-    schema = {
-        "feature_version": FEATURE_VERSION,
-        "created_at": datetime.now().isoformat(),
-        "columns": {
-            col: {
-                "dtype": str(df_features[col].dtype),
-                "nullable_count": int(df_features[col].isna().sum()),
-            }
-            for col in df_features.columns
-        },
-        "target_column": "is_fraud",
-        "event_timestamp_column": "event_timestamp",
-        "entity_column": "transaction_id",
-    }
+def save_quality_report(
+    df_features: pd.DataFrame,
+    raw_file: Path,
+    report_file: Path,
+    cleaning_stats: dict[str, int],
+    quality_profile: dict[str, pd.DataFrame | int],
+) -> Path:
+    missing_summary = quality_profile["missing_summary"]
+    missing_summary = missing_summary.loc[missing_summary["missing_count"] > 0]
 
-    schema_file = paths.metadata_dir / "feature_schema_v1.json"
+    if missing_summary.empty:
+        missing_text = "No missing values were found in the raw dataset."
+    else:
+        missing_text = "\n".join(
+            f"- {row.column}: {int(row.missing_count)} missing values ({row.missing_percentage:.4f}%)"
+            for row in missing_summary.itertuples(index=False)
+        )
 
-    with open(schema_file, "w", encoding="utf-8") as f:
-        json.dump(schema, f, indent=4)
+    target_distribution = quality_profile["target_distribution"]
+    target_text = "\n".join(
+        f"- is_fraud={int(row.is_fraud)}: {int(row.row_count)} rows ({row.percentage:.4f}%)"
+        for row in target_distribution.itertuples(index=False)
+    )
 
-    print("Saved schema:", schema_file)
-    return schema_file
+    transaction_type_summary = quality_profile["type_summary"].head(10)
+    transaction_type_text = "\n".join(
+        f"- {row.transaction_type}: {int(row.row_count)} rows, fraud rate {row.fraud_rate:.6f}"
+        for row in transaction_type_summary.itertuples(index=False)
+    )
 
+    numeric_summary = quality_profile["numeric_summary"]
+    numeric_text = numeric_summary[["mean", "std", "min", "50%", "max"]].round(4).to_string()
 
-def save_preprocessing_metadata(df_features: pd.DataFrame, paths: PipelinePaths, cleaning_stats: dict[str, int]) -> Path:
-    metadata = {
-        "dataset_name": "financial_fraud_detection_dataset",
-        "source_file": str(paths.raw_copy),
-        "feature_version": FEATURE_VERSION,
-        "created_at": datetime.now().isoformat(),
-        "row_count_before_cleaning": int(cleaning_stats["initial_rows"]),
-        "row_count_after_cleaning": int(len(df_features)),
-        "duplicate_rows_removed": int(cleaning_stats["duplicate_rows_removed"]),
-        "invalid_negative_amount_rows_removed": int(cleaning_stats["invalid_amount_rows"]),
-        "invalid_timestamp_rows_removed": int(cleaning_stats["invalid_timestamp_rows"]),
-        "fraud_count": int(df_features["is_fraud"].sum()),
-        "fraud_rate": float(df_features["is_fraud"].mean()),
-        "target_column": "is_fraud",
-        "kept_for_cost_analysis": ["amount"],
-        "excluded_identifier_columns": [
-            "sender_account",
-            "receiver_account",
-            "ip_address",
-            "device_hash",
-        ],
-        "excluded_label_derived_columns": [
-            "fraud_type",
-        ],
-        "notes": [
-            "Only deterministic, row-level preprocessing was applied before the train-validation-test split.",
-            "Scaling, one-hot encoding, learned imputation, SMOTE, and threshold tuning are postponed to the ML pipeline.",
-            "event_timestamp is parsed from the dataset timestamp column.",
-            "fraud_type is excluded because it is known only after fraud labeling or investigation.",
-        ],
-    }
+    report = f"""# Data Quality Report
 
-    metadata_file = paths.metadata_dir / "feature_metadata_v1.json"
+## Dataset Overview
 
-    with open(metadata_file, "w", encoding="utf-8") as f:
-        json.dump(metadata, f, indent=4)
+- Source file: `{raw_file}`
+- Rows before cleaning: {cleaning_stats["initial_rows"]}
+- Rows after cleaning: {len(df_features)}
+- Columns after preprocessing: {df_features.shape[1]}
+- Fraud count after preprocessing: {int(df_features["is_fraud"].sum())}
+- Fraud rate after preprocessing: {df_features["is_fraud"].mean():.6f}
+- Final table: `{OUTPUT_FILE_NAME}`
 
-    print("Saved metadata:", metadata_file)
-    return metadata_file
+## Missing Values Before Cleaning
 
+{missing_text}
 
-# %%
-# This cell writes the data-quality report and verifies that all expected outputs were created.
-def save_quality_report(df_features: pd.DataFrame, paths: PipelinePaths, cleaning_stats: dict[str, int]) -> Path:
-    quality_report_file = paths.reports_dir / "data_quality_report_v1.md"
+## Target Distribution Before Cleaning
 
-    report = dedent(f"""
-    # Data Quality Report - {FEATURE_VERSION}
+{target_text}
 
-    ## Dataset overview
+## Cleaning Decisions
 
-    - Raw file: `{paths.raw_copy}`
-    - Rows before cleaning: {cleaning_stats["initial_rows"]}
-    - Rows after cleaning: {len(df_features)}
-    - Columns after preprocessing: {df_features.shape[1]}
-    - Fraud count: {int(df_features["is_fraud"].sum())}
-    - Fraud rate: {df_features["is_fraud"].mean():.6f}
+- Exact duplicate rows removed: {cleaning_stats["duplicate_rows_removed"]}
+- Negative amount rows removed: {cleaning_stats["invalid_amount_rows"]}
+- Invalid timestamp rows removed: {cleaning_stats["invalid_timestamp_rows"]}
+- Direct identifier columns `sender_account`, `receiver_account`, `ip_address`, and `device_hash` were removed from the final table.
+- `fraud_type` was excluded because it is label-derived information, not an input available at prediction time.
+- Missing `time_since_last_transaction` values were retained with a missing-value flag and filled with -1.
 
-    ## Cleaning decisions
+## Transaction Type Summary Before Cleaning
 
-    - Exact duplicate rows removed: {cleaning_stats["duplicate_rows_removed"]}
-    - Negative amount rows removed: {cleaning_stats["invalid_amount_rows"]}
-    - Invalid timestamp rows removed: {cleaning_stats["invalid_timestamp_rows"]}
-    - Direct identifier columns `sender_account`, `receiver_account`, `ip_address`, and `device_hash` were removed from the processed feature table.
-    - `transaction_id` was kept as the entity key for feature-repository and lineage purposes.
-    - `fraud_type` was excluded because it is label-derived information, not an input available at prediction time.
-    - Missing `time_since_last_transaction` values were retained with a missing-value flag and filled with -1.
+{transaction_type_text}
 
-    ## Leakage-control decision
+## Numeric Summary Before Cleaning
 
-    Only deterministic row-level transformations were applied before the train-validation-test split.
+```text
+{numeric_text}
+```
 
-    The following steps are postponed to the ML pipeline:
+## Leakage-Control Decision
 
-    - learned imputation
-    - scaling or normalization
-    - one-hot encoding
-    - SMOTE or oversampling
-    - feature selection using the target
-    - threshold tuning
+Only deterministic row-level transformations were applied before the train-validation-test split.
 
-    ## Dataset limitation note
+The following steps are postponed to the ML pipeline:
 
-    The dataset is public and static. It is suitable for demonstrating a thesis prototype, but it should not be presented as evidence of production performance in a real banking environment.
-    """).strip() + "\n"
+- learned imputation
+- scaling or normalization
+- one-hot encoding
+- SMOTE or oversampling
+- feature selection using the target
+- threshold tuning
+"""
 
-    with open(quality_report_file, "w", encoding="utf-8") as f:
+    with open(report_file, "w", encoding="utf-8") as f:
         f.write(report)
 
-    print("Saved report:", quality_report_file)
-    return quality_report_file
+    print("Saved data-quality report:", report_file)
+    return report_file
 
 
 def verify_outputs(df_features: pd.DataFrame, output_files: list[Path]) -> None:
@@ -485,21 +408,20 @@ def verify_outputs(df_features: pd.DataFrame, output_files: list[Path]) -> None:
     print("Missing values total:", int(df_features.isna().sum().sum()))
     print("Fraud rate:", df_features["is_fraud"].mean())
 
-    for file in output_files:
-        print(file.exists(), file)
+    for output_file in output_files:
+        print("Output file created:", output_file.exists(), output_file)
 
 
 # %%
 # This cell runs the full preprocessing pipeline in the correct order.
 def main() -> None:
-    paths = build_paths()
-    keep_raw_copy(paths)
-    read_sample(paths.raw_copy)
+    raw_file, output_file, report_file = build_paths()
+    read_sample(raw_file)
 
-    df = load_dataset(paths.raw_copy)
+    df = load_dataset(raw_file)
     df = standardise_columns(df)
     validate_schema(df)
-    profile_dataset(df)
+    quality_profile = profile_dataset(df)
 
     df_clean, cleaning_stats = apply_safe_cleaning(df)
     df_clean, cleaning_stats = parse_event_timestamp(df_clean, cleaning_stats)
@@ -507,12 +429,15 @@ def main() -> None:
     df_features = create_leakage_safe_features(df_clean)
     df_features = select_final_columns(df_features)
 
-    processed_file, feature_store_file = save_processed_datasets(df_features, paths)
-    schema_file = save_feature_schema(df_features, paths)
-    metadata_file = save_preprocessing_metadata(df_features, paths, cleaning_stats)
-    quality_report_file = save_quality_report(df_features, paths, cleaning_stats)
-
-    verify_outputs(df_features, [processed_file, feature_store_file, schema_file, metadata_file, quality_report_file])
+    quality_report_file = save_quality_report(
+        df_features,
+        raw_file,
+        report_file,
+        cleaning_stats,
+        quality_profile,
+    )
+    gold_table_file = save_gold_table(df_features, output_file)
+    verify_outputs(df_features, [gold_table_file, quality_report_file])
 
 
 # %%
@@ -520,7 +445,6 @@ def main() -> None:
 # NameError messages when the final cell is run before the earlier cells in an IDE.
 REQUIRED_PIPELINE_NAMES = [
     "build_paths",
-    "keep_raw_copy",
     "read_sample",
     "load_dataset",
     "standardise_columns",
@@ -530,9 +454,7 @@ REQUIRED_PIPELINE_NAMES = [
     "parse_event_timestamp",
     "create_leakage_safe_features",
     "select_final_columns",
-    "save_processed_datasets",
-    "save_feature_schema",
-    "save_preprocessing_metadata",
+    "save_gold_table",
     "save_quality_report",
     "verify_outputs",
     "main",
