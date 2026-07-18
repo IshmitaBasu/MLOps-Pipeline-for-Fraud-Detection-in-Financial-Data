@@ -1,6 +1,6 @@
 # %% [markdown]
-# Purpose: create one clean preprocessed table for the later ML pipeline.
-# # 01 - Data Pipeline Preprocessing
+# Purpose: create one minimally cleaned table for post-cleaning EDA and the baseline.
+# # 02 - Data Cleaning and Preparation
 #
 # This file prepares the selected public fraud-detection dataset for the later ML pipeline.
 #
@@ -11,8 +11,9 @@
 # 1. loading the raw transaction dataset,
 # 2. checking schema, missing values, duplicates, class imbalance, and numeric ranges,
 # 3. applying only safe cleaning steps,
-# 4. creating deterministic row-level features,
-# 5. saving the final preprocessed table and data-quality report in this same folder.
+# 4. removing prediction-time leakage and out-of-scope identifiers,
+# 5. preserving missing values for train-fitted modeling pipelines,
+# 6. saving the cleaned table and data-quality report in this same folder.
 #
 # Train-test splitting, scaling, one-hot encoding, SMOTE, threshold tuning, and model training are intentionally left for the ML pipeline notebook, where they can be applied without data leakage.
 
@@ -20,7 +21,6 @@
 # This cell imports the standard library and data-analysis packages used throughout the pipeline.
 from pathlib import Path
 
-import numpy as np
 import pandas as pd
 
 
@@ -90,15 +90,10 @@ COLUMNS_TO_KEEP = [
     "device_used",
     "payment_channel",
     "amount",
-    "amount_log1p",
     "time_since_last_transaction",
-    "time_since_last_transaction_missing_flag",
     "spending_deviation_score",
     "velocity_score",
     "geo_anomaly_score",
-    "transaction_hour",
-    "transaction_day_of_week",
-    "transaction_month",
     "is_fraud",
 ]
 
@@ -252,7 +247,10 @@ def apply_safe_cleaning(df: pd.DataFrame) -> tuple[pd.DataFrame, dict[str, int]]
 
 def parse_event_timestamp(df_clean: pd.DataFrame, cleaning_stats: dict[str, int]) -> tuple[pd.DataFrame, dict[str, int]]:
     df_clean = df_clean.copy()
-    df_clean["event_timestamp"] = pd.to_datetime(df_clean["timestamp"], errors="coerce")
+    # Explicit ISO-8601 parsing accepts timestamps both with and without fractional seconds.
+    df_clean["event_timestamp"] = pd.to_datetime(
+        df_clean["timestamp"], errors="coerce", format="ISO8601"
+    )
 
     invalid_timestamp_mask = df_clean["event_timestamp"].isna()
     invalid_timestamp_rows = int(invalid_timestamp_mask.sum())
@@ -268,36 +266,19 @@ def parse_event_timestamp(df_clean: pd.DataFrame, cleaning_stats: dict[str, int]
 
 
 # %%
-# This cell creates deterministic row-level features that do not learn from the target column.
-def create_leakage_safe_features(df_clean: pd.DataFrame) -> pd.DataFrame:
-    df_features = df_clean.copy()
-
-    # Log-transform amount to reduce skew while keeping the original amount for cost analysis.
-    df_features["amount_log1p"] = np.log1p(df_features["amount"])
-
-    # Timestamp-derived features capture simple transaction timing patterns.
-    df_features["transaction_hour"] = df_features["event_timestamp"].dt.hour.astype("int8")
-    df_features["transaction_day_of_week"] = df_features["event_timestamp"].dt.dayofweek.astype("int8")
-    df_features["transaction_month"] = df_features["event_timestamp"].dt.month.astype("int8")
-
-    # Preserve missingness instead of doing split-dependent learned imputation here.
-    df_features["time_since_last_transaction_missing_flag"] = df_features["time_since_last_transaction"].isna().astype("int8")
-    df_features["time_since_last_transaction"] = df_features["time_since_last_transaction"].fillna(-1)
-
-    return df_features
-
-
-def select_final_columns(df_features: pd.DataFrame) -> pd.DataFrame:
-    return df_features[COLUMNS_TO_KEEP].copy()
+# This cell creates the minimal cleaned handoff table. It deliberately does not
+# create model features or fill missing values.
+def select_clean_columns(df_clean: pd.DataFrame) -> pd.DataFrame:
+    return df_clean[COLUMNS_TO_KEEP].copy()
 
 
 # %%
 # This cell saves the final preprocessed table and data-quality report.
-def save_gold_table(df_features: pd.DataFrame, output_file: Path) -> Path:
+def save_gold_table(df_clean_table: pd.DataFrame, output_file: Path) -> Path:
     temporary_file = output_file.with_name(f"{output_file.stem}_temporary{output_file.suffix}")
 
     try:
-        df_features.to_csv(temporary_file, index=False)
+        df_clean_table.to_csv(temporary_file, index=False)
         temporary_file.replace(output_file)
     except PermissionError as exc:
         raise PermissionError(
@@ -311,7 +292,7 @@ def save_gold_table(df_features: pd.DataFrame, output_file: Path) -> Path:
 
 
 def save_quality_report(
-    df_features: pd.DataFrame,
+    df_clean_table: pd.DataFrame,
     raw_file: Path,
     report_file: Path,
     cleaning_stats: dict[str, int],
@@ -349,10 +330,10 @@ def save_quality_report(
 
 - Source file: `{raw_file}`
 - Rows before cleaning: {cleaning_stats["initial_rows"]}
-- Rows after cleaning: {len(df_features)}
-- Columns after preprocessing: {df_features.shape[1]}
-- Fraud count after preprocessing: {int(df_features["is_fraud"].sum())}
-- Fraud rate after preprocessing: {df_features["is_fraud"].mean():.6f}
+- Rows after cleaning: {len(df_clean_table)}
+- Columns after cleaning: {df_clean_table.shape[1]}
+- Fraud count after cleaning: {int(df_clean_table["is_fraud"].sum())}
+- Fraud rate after cleaning: {df_clean_table["is_fraud"].mean():.6f}
 - Final table: `{OUTPUT_FILE_NAME}`
 
 ## Missing Values Before Cleaning
@@ -370,7 +351,8 @@ def save_quality_report(
 - Invalid timestamp rows removed: {cleaning_stats["invalid_timestamp_rows"]}
 - Direct identifier columns `sender_account`, `receiver_account`, `ip_address`, and `device_hash` were removed from the final table.
 - `fraud_type` was excluded because it is label-derived information, not an input available at prediction time.
-- Missing `time_since_last_transaction` values were retained with a missing-value flag and filled with -1.
+- Missing `time_since_last_transaction` values were preserved for train-fitted imputation.
+- No engineered features were added. Log amount, temporal fields, and a missingness flag remain separate feature experiments after the baseline.
 
 ## Transaction Type Summary Before Cleaning
 
@@ -384,7 +366,7 @@ def save_quality_report(
 
 ## Leakage-Control Decision
 
-Only deterministic row-level transformations were applied before the train-validation-test split.
+Only schema validation, conservative row checks, ISO-8601 timestamp parsing, and column selection were applied before the train-validation-test split.
 
 The following steps are postponed to the ML pipeline:
 
@@ -392,6 +374,9 @@ The following steps are postponed to the ML pipeline:
 - scaling or normalization
 - one-hot encoding
 - SMOTE or oversampling
+- log-amount feature creation
+- hour, weekday, or month feature creation
+- missingness-indicator feature creation
 - feature selection using the target
 - threshold tuning
 """
@@ -403,10 +388,10 @@ The following steps are postponed to the ML pipeline:
     return report_file
 
 
-def verify_outputs(df_features: pd.DataFrame, output_files: list[Path]) -> None:
-    print("Processed dataset shape:", df_features.shape)
-    print("Missing values total:", int(df_features.isna().sum().sum()))
-    print("Fraud rate:", df_features["is_fraud"].mean())
+def verify_outputs(df_clean_table: pd.DataFrame, output_files: list[Path]) -> None:
+    print("Cleaned dataset shape:", df_clean_table.shape)
+    print("Preserved missing values:", int(df_clean_table.isna().sum().sum()))
+    print("Fraud rate:", df_clean_table["is_fraud"].mean())
 
     for output_file in output_files:
         print("Output file created:", output_file.exists(), output_file)
@@ -426,18 +411,17 @@ def main() -> None:
     df_clean, cleaning_stats = apply_safe_cleaning(df)
     df_clean, cleaning_stats = parse_event_timestamp(df_clean, cleaning_stats)
 
-    df_features = create_leakage_safe_features(df_clean)
-    df_features = select_final_columns(df_features)
+    df_clean_table = select_clean_columns(df_clean)
 
     quality_report_file = save_quality_report(
-        df_features,
+        df_clean_table,
         raw_file,
         report_file,
         cleaning_stats,
         quality_profile,
     )
-    gold_table_file = save_gold_table(df_features, output_file)
-    verify_outputs(df_features, [gold_table_file, quality_report_file])
+    gold_table_file = save_gold_table(df_clean_table, output_file)
+    verify_outputs(df_clean_table, [gold_table_file, quality_report_file])
 
 
 # %%
@@ -452,8 +436,7 @@ REQUIRED_PIPELINE_NAMES = [
     "profile_dataset",
     "apply_safe_cleaning",
     "parse_event_timestamp",
-    "create_leakage_safe_features",
-    "select_final_columns",
+    "select_clean_columns",
     "save_gold_table",
     "save_quality_report",
     "verify_outputs",

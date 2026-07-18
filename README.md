@@ -4,149 +4,144 @@
 
 ## About the Project
 
-This repository contains the implementation of my Master's thesis on building an end-to-end MLOps pipeline for financial fraud detection.
+This folder contains the current data-analysis and preparation work for my Master's thesis on building an
+end-to-end MLOps pipeline for financial fraud detection.
 
-Financial fraud detection has become increasingly challenging due to the growing volume of digital transactions and the constantly evolving nature of fraudulent activities. While many studies focus on improving machine learning models, this project explores how those models can be developed within a reproducible and maintainable MLOps workflow.
+The project focuses on two things at the same time: detecting fraudulent transactions and showing how the
+machine-learning workflow can be made reproducible, traceable, and maintainable. The current stage is the
+data-understanding and data-preparation phase before baseline modeling.
 
-The goal is to build a prototype that detects fraudulent transactions while demonstrating experiment tracking, model versioning, deployment, and monitoring throughout the machine learning lifecycle.
+## Current Workflow
 
----
+The workflow now follows a clear process-model order:
 
-## Current Progress
+1. Raw-data exploratory analysis
+2. Data cleaning and minimal preparation
+3. Advanced post-cleaning EDA
+4. Baseline modeling with experiment tracking
+5. Controlled feature-engineering experiments
 
-The data preparation and exploratory analysis phase is complete. The project is now moving into leakage-aware model development.
+This order is intentional. The initial EDA happens before cleaning so that the cleaning decisions are based
+on evidence from the raw data. Feature engineering is not added directly to the preprocessing table. Instead,
+the project will first train an original-feature baseline, then test engineered features as separate tracked
+experiments.
 
-### Completed
+## Completed Work
 
-- Thesis proposal and project planning
-- Repository setup and initial pipeline architecture
-- Raw dataset loading, schema validation, and data-quality profiling
-- Removal of exact duplicates, invalid negative amounts, and invalid timestamps
-- Missing-value handling for `time_since_last_transaction` using a missing-value flag and a deterministic sentinel value
-- Removal of direct identifiers and the label-derived `fraud_type` field from the modeling table
-- Leakage-safe row-level feature preparation, including amount and timestamp features
-- Creation of the 18-column preprocessed gold table
-- Exploratory Data Analysis (EDA) covering class balance, numeric, categorical, temporal, and transaction-amount patterns
-- Documentation of the preprocessing pipeline and EDA notebook
+- Created an initial raw-data EDA notebook using the untouched source CSV.
+- Confirmed that the raw dataset contains 5,000,000 rows and 18 columns.
+- Confirmed that all timestamps are valid when parsed with an ISO-8601-aware parser.
+- Identified `fraud_type` as target-derived leakage and excluded it from model inputs.
+- Identified strong class imbalance: 179,553 fraud cases, about 3.59% of the data.
+- Found that `time_since_last_transaction` missingness occurs only among non-fraud rows.
+- Updated the preprocessing pipeline to create a minimally cleaned gold table.
+- Preserved missing values for later train-only imputation instead of filling them globally.
+- Avoided pre-baseline engineered features such as log amount, temporal fields, and missingness flags.
+- Created an advanced post-cleaning EDA notebook with inline charts only.
+- Updated the Markdown reports so they match the current notebooks and preprocessing logic.
 
-### Currently Working On
+## Current Data Artifacts
 
-- Literature review
-- Designing the train-validation-test strategy, including consideration of a time-aware split
-- Preparing the baseline machine learning pipeline
-- Selecting imbalance-aware evaluation metrics and baseline models
-- Reviewing the strong relationship between the missing-value flag and the target before modeling
+Raw input:
 
-### Planned Next Steps
+```text
+financial_fraud_detection_dataset.csv
+```
 
-- Fit categorical encoding, scaling, and any learned imputation on training data only
-- Train and compare baseline fraud-detection models
-- Address class imbalance through class weighting and/or resampling within the training pipeline
-- Evaluate models using precision, recall, F1-score, PR-AUC, ROC-AUC, and confusion matrices
-- Tune the decision threshold using validation data
-- Add experiment tracking with MLflow
-- Add data and model versioning with DVC
-- Deploy the selected model through FastAPI and Docker
-- Implement monitoring and a retraining workflow
+Cleaned output:
 
----
+```text
+gold_financial_fraud_detection_table.csv
+```
 
-## Project Goals
+The current gold table contains:
 
-This project aims to:
+- 5,000,000 transactions
+- 13 columns
+- 179,553 fraudulent transactions
+- fraud rate: approximately 3.59%
+- no engineered model features
+- missing `time_since_last_transaction` values preserved
 
-- Build a reproducible fraud-detection pipeline
-- Compare multiple machine learning models
-- Handle highly imbalanced financial data
-- Apply MLOps practices throughout the ML lifecycle
-- Improve experiment reproducibility and traceability
-
----
-
-## Current Data Pipeline
-
-The preprocessing script validates the expected schema, profiles data quality, applies conservative cleaning, and creates deterministic row-level features. Transformations that learn from the data distribution are deliberately postponed until after the train-validation-test split to prevent data leakage.
-
-The resulting gold table contains:
-
-- 4,277,262 transactions
-- 18 columns
-- 147,881 fraudulent transactions
-- A fraud rate of approximately 3.46%
-- No remaining missing values after the documented preprocessing decisions
-
-The completed EDA confirms that the target is imbalanced and identifies a notable relationship between `time_since_last_transaction_missing_flag` and the fraud label. This signal will be reviewed carefully during model development.
-
----
-
-## Tech Stack
-
-Currently used:
-
-- Python
-- Pandas
-- NumPy
-- Matplotlib
-- Scikit-learn
-- Jupyter Notebook
-
-Planned additions:
-
-- MLflow
-- DVC
-- FastAPI
-- Docker
-
----
+The gold table keeps only the original usable predictors, `transaction_id` for lineage,
+`event_timestamp` for time-aware splitting and analysis, and `is_fraud` as the target.
 
 ## Repository Structure
 
 ```text
-.
-|-- 01_data_pipeline_preprocessing.py     # Data validation, cleaning, and feature preparation
-|-- 01_data_pipeline_preprocessing.md     # Preprocessing documentation
-|-- 02_exploratory_data_analysis.ipynb    # Executed exploratory analysis
-|-- 02_exploratory_data_analysis.md       # EDA documentation and findings
-|-- Architetcure Diagram.drawio           # Initial pipeline architecture diagram
+Code snippets/
+|-- 01_initial_raw_data_eda.ipynb              # Initial EDA on the untouched raw CSV
+|-- 01_initial_raw_data_eda.md                 # Short documentation for the raw EDA notebook
+|-- initial_raw_data_eda_report_v1.md          # Detailed raw EDA findings
+|-- 02_data_pipeline_preprocessing.py          # Cleaning and minimal preparation pipeline
+|-- 02_data_pipeline_preprocessing.md          # Preprocessing documentation
+|-- data_quality_report_v1.md                  # Generated quality report from preprocessing
+|-- 03_exploratory_data_analysis.ipynb         # Advanced EDA on the cleaned gold table
+|-- 03_exploratory_data_analysis.md            # Short documentation for the advanced EDA notebook
+|-- eda_report_v1.md                           # Detailed advanced EDA findings
 |-- sample_financial_fraud_detection_dataset.csv
 |-- README.md
 ```
 
-Large raw and processed datasets are not stored in this repository. The sample CSV is included only to show the dataset structure.
+Large raw and processed CSV files are local working artifacts and should not be committed to version
+control.
 
----
+## Why There Are Two EDA Stages
 
-## Dataset and Key Findings
+The first EDA notebook looks at the raw dataset before any cleaning. Its purpose is to understand the data,
+spot quality issues, identify leakage risks, and decide what the preparation pipeline should do.
 
-The project uses a public synthetic financial fraud detection dataset. The preprocessing pipeline produces a documented gold table for EDA and later model development.
+The advanced EDA notebook runs after the minimally cleaned gold table is created. Its purpose is different:
+it checks whether the cleaned artifact makes sense and studies deeper relationships before modeling. The
+advanced EDA creates temporary analysis variables inside the notebook, but it does not save those variables
+as model features.
 
-Current findings include:
+This keeps the workflow clean: EDA can suggest feature ideas, but the value of those ideas must be tested
+later through tracked modeling experiments.
 
-- Fraud accounts for approximately 3.46% of the preprocessed transactions, confirming class imbalance.
-- Transaction amounts are strongly skewed, motivating the leakage-safe `amount_log1p` feature.
-- Fraud rates vary slightly across transaction types, merchant categories, devices, hours, and amount bands.
-- The missing-value flag for `time_since_last_transaction` differs substantially between fraud and non-fraud rows and may reflect a data-generation pattern.
-- Encoding, scaling, resampling, feature selection, model training, and threshold tuning remain split-dependent steps and have not yet been applied.
+## Key Findings So Far
 
----
+- The dataset is highly imbalanced, so accuracy alone will not be a useful evaluation metric.
+- `fraud_type` is not a valid model input because it describes the known fraud outcome.
+- Transaction amount is right-skewed, so `amount_log1p` is a candidate feature experiment after the baseline.
+- Timestamp patterns may be useful, so hour, weekday, and month features should be tested later.
+- Missingness in `time_since_last_transaction` is suspiciously related to the target and should be handled
+  carefully as a separate sensitivity experiment.
+- Numeric variables have weak direct linear correlation with the target, so nonlinear models or interactions
+  may be worth comparing later.
 
 ## Running the Current Work
 
-Run the preprocessing script from the thesis workspace:
+From the thesis workspace, run the preprocessing script with:
 
 ```bash
-python "Gitpush/01_data_pipeline_preprocessing.py"
+python "Code snippets/02_data_pipeline_preprocessing.py"
 ```
 
-Then open and run `02_exploratory_data_analysis.ipynb` after confirming that `gold_financial_fraud_detection_table.csv` is available in the configured data directory.
+Then open the notebooks in order:
 
----
+```text
+01_initial_raw_data_eda.ipynb
+03_exploratory_data_analysis.ipynb
+```
+
+The EDA notebooks display tables and charts inline. They do not save separate PNG, SVG, or chart-output
+files.
+
+## Next Steps
+
+- Define the train-validation-test split, preferably with a time-aware strategy.
+- Add experiment tracking, most likely with MLflow.
+- Train an original-feature baseline model first.
+- Track baseline metrics such as PR-AUC, ROC-AUC, precision, recall, F1-score, and confusion matrices.
+- Test engineered features only after the baseline has been recorded.
+- Compare feature-engineering experiments fairly using the same split and evaluation metrics.
+- Continue later MLOps stages: model versioning, deployment, monitoring, and retraining.
 
 ## Status
 
-Work in progress — data preprocessing and exploratory analysis are complete; model development and MLOps integration are the next major stages.
-
----
+Data understanding and minimal data preparation are aligned. The next major stage is baseline modeling with
+experiment tracking.
 
 ## Author
 
