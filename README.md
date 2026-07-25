@@ -18,8 +18,9 @@ The workflow now follows a clear process-model order:
 1. Raw-data exploratory analysis
 2. Data cleaning and minimal preparation
 3. Advanced post-cleaning EDA
-4. Baseline modeling with experiment tracking
-5. Controlled feature-engineering experiments
+4. Dummy and logistic baseline modeling with experiment tracking
+5. Controlled original-feature candidate-model comparison
+6. Controlled feature-engineering experiments
 
 This order is intentional. The initial EDA happens before cleaning so that the cleaning decisions are based
 on evidence from the raw data. Feature engineering is not added directly to the preprocessing table. Instead,
@@ -39,6 +40,11 @@ experiments.
 - Avoided pre-baseline engineered features such as log amount, temporal fields, and missingness flags.
 - Created an advanced post-cleaning EDA notebook with inline charts only.
 - Updated the Markdown reports so they match the current notebooks and preprocessing logic.
+- Added MLflow-tracked dummy and logistic baselines using the original cleaned feature set.
+- Added a leakage-aware candidate-model comparison for dummy, logistic, Random Forest, and boosting models.
+- Kept Decision Tree and sampled k-NN as optional sensitivity or feasibility checks.
+- Added dataset hashing, complete scalar parameter logging, runtime metrics, evaluation figures, model
+  explanations, environment metadata, source snapshots, and model signatures.
 
 ## Current Data Artifacts
 
@@ -79,6 +85,11 @@ Code snippets/
 |-- 03_exploratory_data_analysis.ipynb         # Advanced EDA on the cleaned gold table
 |-- 03_exploratory_data_analysis.md            # Short documentation for the advanced EDA notebook
 |-- eda_report_v1.md                           # Detailed advanced EDA findings
+|-- 04_baseline_modeling_with_mlflow.py        # Original-feature baseline with MLflow tracking
+|-- 04_baseline_modeling_with_mlflow.md        # Baseline modeling and tracking documentation
+|-- fraud_modeling_utils.py                    # Shared splitting, evaluation, plotting, and tracking logic
+|-- 05_candidate_model_comparison_with_mlflow.py  # EDA-justified candidate-model comparison
+|-- 05_candidate_model_comparison_with_mlflow.md  # Comparison protocol and run instructions
 |-- sample_financial_fraud_detection_dataset.csv
 |-- README.md
 ```
@@ -128,20 +139,56 @@ Then open the notebooks in order:
 The EDA notebooks display tables and charts inline. They do not save separate PNG, SVG, or chart-output
 files.
 
+Run a quick MLflow smoke baseline with:
+
+```bash
+python "Code snippets/04_baseline_modeling_with_mlflow.py" --sample-rows 50000
+```
+
+Run the full original-feature baseline with:
+
+```bash
+python "Code snippets/04_baseline_modeling_with_mlflow.py"
+```
+
+Run a smoke candidate-model comparison with:
+
+```bash
+python "Code snippets/05_candidate_model_comparison_with_mlflow.py" --sample-rows 50000 --skip-data-hash
+```
+
+Run the core candidate-model comparison with:
+
+```bash
+python "Code snippets/05_candidate_model_comparison_with_mlflow.py"
+```
+
+Run an optional Decision Tree or sampled k-NN check only if you need a sensitivity analysis:
+
+```bash
+python "Code snippets/05_candidate_model_comparison_with_mlflow.py" --models decision_tree_depth_10 knn_neighbors_31 --sample-rows 50000 --skip-data-hash
+```
+
+Open the local MLflow interface on Windows with one worker:
+
+```powershell
+.\masters_thesis\Scripts\mlflow.exe ui --workers 1 --backend-store-uri "sqlite:///D:/Germany/Documents/Magdeburg/Semester Documents/Sem 5/Thesis/Code snippets/mlflow_tracking.db"
+```
+
 ## Next Steps
 
-- Define the train-validation-test split, preferably with a time-aware strategy.
-- Add experiment tracking, most likely with MLflow.
-- Train an original-feature baseline model first.
-- Track baseline metrics such as PR-AUC, ROC-AUC, precision, recall, F1-score, and confusion matrices.
+- Run and review the updated dummy and logistic MLflow baselines.
+- Run the core candidate-model comparison using the fixed time-aware split.
+- Select the preferred candidate model with validation PR-AUC and use test results only for final evaluation.
 - Test engineered features only after the baseline has been recorded.
 - Compare feature-engineering experiments fairly using the same split and evaluation metrics.
 - Continue later MLOps stages: model versioning, deployment, monitoring, and retraining.
 
 ## Status
 
-Data understanding and minimal data preparation are aligned. The next major stage is baseline modeling with
-experiment tracking.
+Data understanding, minimal preparation, baseline definitions, and the candidate-model comparison scaffold are
+aligned. An earlier 50,000-row run verified the local MLflow store; the updated multi-run scripts still need
+to be executed, first as smoke runs and then on the complete dataset.
 
 ## Author
 

@@ -3,3 +3,11 @@
 /initial_raw_data_eda_report_v1.md
 /gold_financial_fraud_detection_table.csv
 /financial_fraud_detection_dataset.csv
+/mlruns/
+/mlartifacts/
+/mlflow_tracking.db
+/mlflow_tracking.db-shm
+/mlflow_tracking.db-wal
+__pycache__/
+*.pyc
+/.gitignore
