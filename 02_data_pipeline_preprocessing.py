@@ -19,17 +19,24 @@
 
 # %%
 # This cell imports the standard library and data-analysis packages used throughout the pipeline.
+import hashlib
+import json
+from datetime import datetime, timezone
 from pathlib import Path
 
 import pandas as pd
 
-
 # %%
 # This cell defines project paths, dataset names, expected schema, and the final columns to save.
-DEFAULT_BASE_DIR = Path(r"D:\Germany\Documents\Magdeburg\Semester Documents\Sem 5\Thesis\Code snippets") 
+DEFAULT_BASE_DIR = Path(r"D:\Germany\Documents\Magdeburg\Semester Documents\Sem 5\Thesis\Code snippets")
 DATASET_FILE_NAME = "financial_fraud_detection_dataset.csv"
 OUTPUT_FILE_NAME = "gold_financial_fraud_detection_table.csv"
 DATA_QUALITY_REPORT_FILE_NAME = "data_quality_report_v1.md"
+FEATURE_VERSION = "v1"
+FEATURE_TABLE_FILE_NAME = f"fraud_features_{FEATURE_VERSION}.parquet"
+LABEL_TABLE_FILE_NAME = f"fraud_labels_{FEATURE_VERSION}.parquet"
+FEATURE_SCHEMA_FILE_NAME = f"feature_schema_{FEATURE_VERSION}.json"
+FEATURE_METADATA_FILE_NAME = f"feature_metadata_{FEATURE_VERSION}.json"
 
 DTYPE_MAP = {
     "transaction_id": "string",
@@ -97,10 +104,37 @@ COLUMNS_TO_KEEP = [
     "is_fraud",
 ]
 
+MODEL_FEATURE_COLUMNS = [
+    "transaction_type",
+    "merchant_category",
+    "location",
+    "device_used",
+    "payment_channel",
+    "amount",
+    "time_since_last_transaction",
+    "spending_deviation_score",
+    "velocity_score",
+    "geo_anomaly_score",
+]
+
+FEATURE_HANDOFF_COLUMNS = [
+    "transaction_id",
+    "event_timestamp",
+    *MODEL_FEATURE_COLUMNS,
+]
+
+LABEL_HANDOFF_COLUMNS = [
+    "transaction_id",
+    "event_timestamp",
+    "is_fraud",
+]
+
 
 # %%
 # This cell finds the dataset and defines the output files.
-def build_paths(base_dir: Path = DEFAULT_BASE_DIR) -> tuple[Path, Path, Path]:
+def build_paths(
+    base_dir: Path = DEFAULT_BASE_DIR,
+) -> tuple[Path, Path, Path, Path, Path, Path, Path]:
     raw_file = base_dir / DATASET_FILE_NAME
 
     # Useful when the script is run from the folder that contains the CSV.
@@ -110,13 +144,31 @@ def build_paths(base_dir: Path = DEFAULT_BASE_DIR) -> tuple[Path, Path, Path]:
 
     output_file = base_dir / OUTPUT_FILE_NAME
     report_file = base_dir / DATA_QUALITY_REPORT_FILE_NAME
+    feature_data_dir = base_dir / "feature_repo" / "data"
+    feature_metadata_dir = base_dir / "feature_repo" / "metadata"
+    feature_table_file = feature_data_dir / FEATURE_TABLE_FILE_NAME
+    label_table_file = feature_data_dir / LABEL_TABLE_FILE_NAME
+    feature_schema_file = feature_metadata_dir / FEATURE_SCHEMA_FILE_NAME
+    feature_metadata_file = feature_metadata_dir / FEATURE_METADATA_FILE_NAME
 
     print("Dataset file found:", raw_file.exists())
     print("Dataset path:", raw_file)
     print("Gold table path:", output_file)
     print("Data-quality report path:", report_file)
+    print("Feast feature table path:", feature_table_file)
+    print("Feast label table path:", label_table_file)
+    print("Feature schema path:", feature_schema_file)
+    print("Feature metadata path:", feature_metadata_file)
 
-    return raw_file, output_file, report_file
+    return (
+        raw_file,
+        output_file,
+        report_file,
+        feature_table_file,
+        label_table_file,
+        feature_schema_file,
+        feature_metadata_file,
+    )
 
 
 # %%
@@ -174,23 +226,13 @@ def profile_dataset(df: pd.DataFrame) -> dict[str, pd.DataFrame | int]:
     print("Fraud rate:", fraud_rate)
     print("Fraud rate percentage:", round(fraud_rate * 100, 4), "%")
 
-    missing_summary = (
-        df.isna()
-        .sum()
-        .reset_index()
-        .rename(columns={"index": "column", 0: "missing_count"})
-    )
+    missing_summary = df.isna().sum().reset_index().rename(columns={"index": "column", 0: "missing_count"})
     missing_summary["missing_percentage"] = missing_summary["missing_count"] / len(df) * 100
 
     duplicate_count = int(df.duplicated().sum())
     print("Exact duplicate rows:", duplicate_count)
 
-    target_distribution = (
-        df["is_fraud"]
-        .value_counts()
-        .rename_axis("is_fraud")
-        .reset_index(name="row_count")
-    )
+    target_distribution = df["is_fraud"].value_counts().rename_axis("is_fraud").reset_index(name="row_count")
     target_distribution["percentage"] = target_distribution["row_count"] / len(df) * 100
 
     type_summary = (
@@ -206,9 +248,7 @@ def profile_dataset(df: pd.DataFrame) -> dict[str, pd.DataFrame | int]:
     type_summary["fraud_rate"] = type_summary["fraud_count"] / type_summary["row_count"]
     type_summary = type_summary.sort_values("fraud_rate", ascending=False)
 
-    numeric_summary = df[NUMERIC_COLUMNS].describe(
-        percentiles=[0.01, 0.05, 0.50, 0.95, 0.99]
-    ).T
+    numeric_summary = df[NUMERIC_COLUMNS].describe(percentiles=[0.01, 0.05, 0.50, 0.95, 0.99]).T
 
     return {
         "missing_summary": missing_summary,
@@ -245,12 +285,12 @@ def apply_safe_cleaning(df: pd.DataFrame) -> tuple[pd.DataFrame, dict[str, int]]
     return df_clean, cleaning_stats
 
 
-def parse_event_timestamp(df_clean: pd.DataFrame, cleaning_stats: dict[str, int]) -> tuple[pd.DataFrame, dict[str, int]]:
+def parse_event_timestamp(
+    df_clean: pd.DataFrame, cleaning_stats: dict[str, int]
+) -> tuple[pd.DataFrame, dict[str, int]]:
     df_clean = df_clean.copy()
     # Explicit ISO-8601 parsing accepts timestamps both with and without fractional seconds.
-    df_clean["event_timestamp"] = pd.to_datetime(
-        df_clean["timestamp"], errors="coerce", format="ISO8601"
-    )
+    df_clean["event_timestamp"] = pd.to_datetime(df_clean["timestamp"], errors="coerce", format="ISO8601")
 
     invalid_timestamp_mask = df_clean["event_timestamp"].isna()
     invalid_timestamp_rows = int(invalid_timestamp_mask.sum())
@@ -289,6 +329,190 @@ def save_gold_table(df_clean_table: pd.DataFrame, output_file: Path) -> Path:
 
     print("Saved gold table:", output_file)
     return output_file
+
+
+def sha256_file(path: Path, chunk_size: int = 8 * 1024 * 1024) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as file_handle:
+        while chunk := file_handle.read(chunk_size):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def save_parquet_atomically(table: pd.DataFrame, output_file: Path) -> Path:
+    output_file.parent.mkdir(parents=True, exist_ok=True)
+    temporary_file = output_file.with_name(f"{output_file.stem}_temporary{output_file.suffix}")
+    table.to_parquet(temporary_file, index=False)
+    temporary_file.replace(output_file)
+    return output_file
+
+
+def save_json_atomically(payload: dict, output_file: Path) -> Path:
+    output_file.parent.mkdir(parents=True, exist_ok=True)
+    temporary_file = output_file.with_name(f"{output_file.stem}_temporary{output_file.suffix}")
+    temporary_file.write_text(
+        json.dumps(payload, indent=2, default=str),
+        encoding="utf-8",
+    )
+    temporary_file.replace(output_file)
+    return output_file
+
+
+def build_feature_schema(feature_table: pd.DataFrame, label_table: pd.DataFrame) -> dict:
+    feast_types = {
+        "transaction_id": "String",
+        "event_timestamp": "UnixTimestamp",
+        "transaction_type": "String",
+        "merchant_category": "String",
+        "location": "String",
+        "device_used": "String",
+        "payment_channel": "String",
+        "amount": "Float64",
+        "time_since_last_transaction": "Float64",
+        "spending_deviation_score": "Float64",
+        "velocity_score": "Int64",
+        "geo_anomaly_score": "Float64",
+        "is_fraud": "Int32",
+    }
+
+    def table_schema(table: pd.DataFrame) -> list[dict]:
+        return [
+            {
+                "name": column,
+                "pandas_dtype": str(table[column].dtype),
+                "feast_dtype": feast_types[column],
+                "nullable": bool(table[column].isna().any()),
+            }
+            for column in table.columns
+        ]
+
+    return {
+        "feature_version": FEATURE_VERSION,
+        "entity": {
+            "name": "transaction",
+            "join_key": "transaction_id",
+        },
+        "event_timestamp": "event_timestamp",
+        "feature_view": "fraud_transaction_features",
+        "feature_service": f"fraud_model_features_{FEATURE_VERSION}",
+        "feature_table": table_schema(feature_table),
+        "label_table": table_schema(label_table),
+        "target_registered_as_feature": False,
+    }
+
+
+def save_feature_store_handoff(
+    df_clean_table: pd.DataFrame,
+    raw_file: Path,
+    feature_table_file: Path,
+    label_table_file: Path,
+    feature_schema_file: Path,
+    feature_metadata_file: Path,
+    cleaning_stats: dict[str, int],
+) -> list[Path]:
+    """Create the versioned, leakage-safe offline-store handoff for Feast."""
+    if df_clean_table["transaction_id"].duplicated().any():
+        raise ValueError("The Feast transaction entity requires unique transaction_id values.")
+    if df_clean_table["is_fraud"].isna().any():
+        raise ValueError("The label handoff cannot contain missing is_fraud values.")
+
+    feature_table = df_clean_table[FEATURE_HANDOFF_COLUMNS].copy()
+    label_table = df_clean_table[LABEL_HANDOFF_COLUMNS].copy()
+
+    feature_table["transaction_id"] = feature_table["transaction_id"].astype("string")
+    label_table["transaction_id"] = label_table["transaction_id"].astype("string")
+    for column in [
+        "transaction_type",
+        "merchant_category",
+        "location",
+        "device_used",
+        "payment_channel",
+    ]:
+        feature_table[column] = feature_table[column].astype("string")
+    feature_table["velocity_score"] = feature_table["velocity_score"].astype("int64")
+    label_table["is_fraud"] = label_table["is_fraud"].astype("int8")
+
+    save_parquet_atomically(feature_table, feature_table_file)
+    save_parquet_atomically(label_table, label_table_file)
+
+    schema_payload = build_feature_schema(feature_table, label_table)
+    save_json_atomically(schema_payload, feature_schema_file)
+
+    pipeline_source = Path(__file__).resolve()
+    metadata_payload = {
+        "feature_version": FEATURE_VERSION,
+        "generated_at_utc": datetime.now(timezone.utc).isoformat(),
+        "feature_store": "feast_local_file_offline_store",
+        "feature_view": "fraud_transaction_features",
+        "feature_service": f"fraud_model_features_{FEATURE_VERSION}",
+        "entity": "transaction",
+        "entity_join_key": "transaction_id",
+        "event_timestamp": "event_timestamp",
+        "row_count": int(len(feature_table)),
+        "fraud_count": int(label_table["is_fraud"].sum()),
+        "fraud_rate": float(label_table["is_fraud"].mean()),
+        "feature_columns": MODEL_FEATURE_COLUMNS,
+        "label_column": "is_fraud",
+        "target_registered_as_feature": False,
+        "cleaning_stats": cleaning_stats,
+        "artifacts": {
+            "raw_source": {
+                "path": str(raw_file.resolve()),
+                "size_bytes": int(raw_file.stat().st_size),
+                "modified_time_ns": int(raw_file.stat().st_mtime_ns),
+                "sha256": sha256_file(raw_file),
+            },
+            "feature_table": {
+                "path": str(feature_table_file.resolve()),
+                "size_bytes": int(feature_table_file.stat().st_size),
+                "sha256": sha256_file(feature_table_file),
+            },
+            "label_table": {
+                "path": str(label_table_file.resolve()),
+                "size_bytes": int(label_table_file.stat().st_size),
+                "sha256": sha256_file(label_table_file),
+            },
+            "feature_schema": {
+                "path": str(feature_schema_file.resolve()),
+                "sha256": sha256_file(feature_schema_file),
+            },
+            "data_pipeline_source": {
+                "path": str(pipeline_source),
+                "sha256": sha256_file(pipeline_source),
+            },
+        },
+        "leakage_boundary": {
+            "allowed_in_handoff": (
+                "Record-level values available at prediction time; the target is "
+                "stored separately and is not registered as a Feast feature."
+            ),
+            "kept_in_ml_pipeline": [
+                "learned imputation",
+                "scaling",
+                "categorical encoding",
+                "resampling or SMOTE",
+                "target-based feature selection",
+                "decision-threshold tuning",
+            ],
+        },
+        "limitations": [
+            "The source is a static public/synthetic transaction dataset.",
+            "transaction_id is used as an offline prototype entity, not as a reusable customer entity.",
+            "The local Feast repository is a prototype and not a production feature platform.",
+        ],
+    }
+    save_json_atomically(metadata_payload, feature_metadata_file)
+
+    print("Saved Feast feature table:", feature_table_file)
+    print("Saved Feast label table:", label_table_file)
+    print("Saved feature schema:", feature_schema_file)
+    print("Saved feature metadata:", feature_metadata_file)
+    return [
+        feature_table_file,
+        label_table_file,
+        feature_schema_file,
+        feature_metadata_file,
+    ]
 
 
 def save_quality_report(
@@ -353,6 +577,8 @@ def save_quality_report(
 - `fraud_type` was excluded because it is label-derived information, not an input available at prediction time.
 - Missing `time_since_last_transaction` values were preserved for train-fitted imputation.
 - No engineered features were added. Log amount, temporal fields, and a missingness flag remain separate feature experiments after the baseline.
+- A versioned Feast offline-store handoff is produced as separate Parquet feature and label tables.
+- `is_fraud` is stored in the label table and is not registered as a Feast feature.
 
 ## Transaction Type Summary Before Cleaning
 
@@ -400,7 +626,15 @@ def verify_outputs(df_clean_table: pd.DataFrame, output_files: list[Path]) -> No
 # %%
 # This cell runs the full preprocessing pipeline in the correct order.
 def main() -> None:
-    raw_file, output_file, report_file = build_paths()
+    (
+        raw_file,
+        output_file,
+        report_file,
+        feature_table_file,
+        label_table_file,
+        feature_schema_file,
+        feature_metadata_file,
+    ) = build_paths()
     read_sample(raw_file)
 
     df = load_dataset(raw_file)
@@ -421,7 +655,19 @@ def main() -> None:
         quality_profile,
     )
     gold_table_file = save_gold_table(df_clean_table, output_file)
-    verify_outputs(df_clean_table, [gold_table_file, quality_report_file])
+    feature_handoff_files = save_feature_store_handoff(
+        df_clean_table,
+        raw_file,
+        feature_table_file,
+        label_table_file,
+        feature_schema_file,
+        feature_metadata_file,
+        cleaning_stats,
+    )
+    verify_outputs(
+        df_clean_table,
+        [gold_table_file, quality_report_file, *feature_handoff_files],
+    )
 
 
 # %%
@@ -438,15 +684,13 @@ REQUIRED_PIPELINE_NAMES = [
     "parse_event_timestamp",
     "select_clean_columns",
     "save_gold_table",
+    "save_feature_store_handoff",
     "save_quality_report",
     "verify_outputs",
     "main",
 ]
 
-missing_pipeline_names = [
-    name for name in REQUIRED_PIPELINE_NAMES
-    if name not in globals()
-]
+missing_pipeline_names = [name for name in REQUIRED_PIPELINE_NAMES if name not in globals()]
 
 if __name__ == "__main__":
     if missing_pipeline_names:

@@ -8,6 +8,10 @@
 /mlflow_tracking.db
 /mlflow_tracking.db-shm
 /mlflow_tracking.db-wal
+/feature_repo/data/*.parquet
+/feature_repo/data/registry.db*
+/feature_repo/data/online_store.db*
+/data/online.db*
+/advanced_implementation/
 __pycache__/
 *.pyc
-/.gitignore

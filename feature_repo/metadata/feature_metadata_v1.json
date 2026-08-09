@@ -1,0 +1,75 @@
+{
+  "feature_version": "v1",
+  "generated_at_utc": "2026-07-26T17:40:13.870318+00:00",
+  "feature_store": "feast_local_file_offline_store",
+  "feature_view": "fraud_transaction_features",
+  "feature_service": "fraud_model_features_v1",
+  "entity": "transaction",
+  "entity_join_key": "transaction_id",
+  "event_timestamp": "event_timestamp",
+  "row_count": 5000000,
+  "fraud_count": 179553,
+  "fraud_rate": 0.0359106,
+  "feature_columns": [
+    "transaction_type",
+    "merchant_category",
+    "location",
+    "device_used",
+    "payment_channel",
+    "amount",
+    "time_since_last_transaction",
+    "spending_deviation_score",
+    "velocity_score",
+    "geo_anomaly_score"
+  ],
+  "label_column": "is_fraud",
+  "target_registered_as_feature": false,
+  "cleaning_stats": {
+    "initial_rows": 5000000,
+    "duplicate_rows_removed": 0,
+    "invalid_amount_rows": 0,
+    "invalid_timestamp_rows": 0
+  },
+  "artifacts": {
+    "raw_source": {
+      "path": "D:\\Germany\\Documents\\Magdeburg\\Semester Documents\\Sem 5\\Thesis\\Code snippets\\financial_fraud_detection_dataset.csv",
+      "size_bytes": 796050204,
+      "modified_time_ns": 1779911177235913900,
+      "sha256": "f8186b81fa497741d1b224cc8d7968a694a0a4639237ad208b845273b746f338"
+    },
+    "feature_table": {
+      "path": "D:\\Germany\\Documents\\Magdeburg\\Semester Documents\\Sem 5\\Thesis\\Code snippets\\feature_repo\\data\\fraud_features_v1.parquet",
+      "size_bytes": 141684411,
+      "sha256": "db1c01acc7c6425113a4d8d41df753f4c9fc49b5c1a0c37479cc258ac4e5354c"
+    },
+    "label_table": {
+      "path": "D:\\Germany\\Documents\\Magdeburg\\Semester Documents\\Sem 5\\Thesis\\Code snippets\\feature_repo\\data\\fraud_labels_v1.parquet",
+      "size_bytes": 65660635,
+      "sha256": "72e3a80f04d6d1bf917bd88588b7bc9820c39c703acdd8496ea136ec7e8f8e78"
+    },
+    "feature_schema": {
+      "path": "D:\\Germany\\Documents\\Magdeburg\\Semester Documents\\Sem 5\\Thesis\\Code snippets\\feature_repo\\metadata\\feature_schema_v1.json",
+      "sha256": "c26084866f75af0e7d2b5b48d413d4cfac43b69871f8ec34c9f94a78cb065fc0"
+    },
+    "data_pipeline_source": {
+      "path": "D:\\Germany\\Documents\\Magdeburg\\Semester Documents\\Sem 5\\Thesis\\Code snippets\\02_data_pipeline_preprocessing.py",
+      "sha256": "54617b7c7b97c8aa3c88e9a9669d283e00494f30c44bc81ac4cfc932447651f7"
+    }
+  },
+  "leakage_boundary": {
+    "allowed_in_handoff": "Record-level values available at prediction time; the target is stored separately and is not registered as a Feast feature.",
+    "kept_in_ml_pipeline": [
+      "learned imputation",
+      "scaling",
+      "categorical encoding",
+      "resampling or SMOTE",
+      "target-based feature selection",
+      "decision-threshold tuning"
+    ]
+  },
+  "limitations": [
+    "The source is a static public/synthetic transaction dataset.",
+    "transaction_id is used as an offline prototype entity, not as a reusable customer entity.",
+    "The local Feast repository is a prototype and not a production feature platform."
+  ]
+}

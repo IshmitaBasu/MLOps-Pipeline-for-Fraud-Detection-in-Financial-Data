@@ -1,0 +1,105 @@
+{
+  "feature_version": "v1",
+  "entity": {
+    "name": "transaction",
+    "join_key": "transaction_id"
+  },
+  "event_timestamp": "event_timestamp",
+  "feature_view": "fraud_transaction_features",
+  "feature_service": "fraud_model_features_v1",
+  "feature_table": [
+    {
+      "name": "transaction_id",
+      "pandas_dtype": "string",
+      "feast_dtype": "String",
+      "nullable": false
+    },
+    {
+      "name": "event_timestamp",
+      "pandas_dtype": "datetime64[ns]",
+      "feast_dtype": "UnixTimestamp",
+      "nullable": false
+    },
+    {
+      "name": "transaction_type",
+      "pandas_dtype": "string",
+      "feast_dtype": "String",
+      "nullable": false
+    },
+    {
+      "name": "merchant_category",
+      "pandas_dtype": "string",
+      "feast_dtype": "String",
+      "nullable": false
+    },
+    {
+      "name": "location",
+      "pandas_dtype": "string",
+      "feast_dtype": "String",
+      "nullable": false
+    },
+    {
+      "name": "device_used",
+      "pandas_dtype": "string",
+      "feast_dtype": "String",
+      "nullable": false
+    },
+    {
+      "name": "payment_channel",
+      "pandas_dtype": "string",
+      "feast_dtype": "String",
+      "nullable": false
+    },
+    {
+      "name": "amount",
+      "pandas_dtype": "float64",
+      "feast_dtype": "Float64",
+      "nullable": false
+    },
+    {
+      "name": "time_since_last_transaction",
+      "pandas_dtype": "float64",
+      "feast_dtype": "Float64",
+      "nullable": true
+    },
+    {
+      "name": "spending_deviation_score",
+      "pandas_dtype": "float64",
+      "feast_dtype": "Float64",
+      "nullable": false
+    },
+    {
+      "name": "velocity_score",
+      "pandas_dtype": "int64",
+      "feast_dtype": "Int64",
+      "nullable": false
+    },
+    {
+      "name": "geo_anomaly_score",
+      "pandas_dtype": "float64",
+      "feast_dtype": "Float64",
+      "nullable": false
+    }
+  ],
+  "label_table": [
+    {
+      "name": "transaction_id",
+      "pandas_dtype": "string",
+      "feast_dtype": "String",
+      "nullable": false
+    },
+    {
+      "name": "event_timestamp",
+      "pandas_dtype": "datetime64[ns]",
+      "feast_dtype": "UnixTimestamp",
+      "nullable": false
+    },
+    {
+      "name": "is_fraud",
+      "pandas_dtype": "int8",
+      "feast_dtype": "Int32",
+      "nullable": false
+    }
+  ],
+  "target_registered_as_feature": false
+}

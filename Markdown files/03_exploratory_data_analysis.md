@@ -1,88 +1,35 @@
-# 03 - Advanced post-cleaning exploratory data analysis
+# 03 – Exploring the cleaned transaction data
 
-This note documents `03_exploratory_data_analysis.ipynb`.
+After the raw-data review and preprocessing stages, <code>03_exploratory_data_analysis.ipynb</code> examines the cleaned table in greater depth. The first notebook established what exists in the source; this notebook asks whether the retained variables contain patterns that should influence the modeling design.
 
-## Position in the workflow
+The notebook reads <code>gold_financial_fraud_detection_table.csv</code>. It does not train a model or modify the gold table. Temporary columns are created in memory for grouping and plotting, but no engineered feature is written back to disk.
 
-This notebook runs after:
+## Checking the handoff before analysis
 
-1. `01_initial_raw_data_eda.ipynb`, which explores the untouched source;
-2. `02_data_pipeline_preprocessing.py`, which creates the minimally cleaned gold table.
+The notebook begins by loading the thirteen-column gold table and reconciling it with the preprocessing report. It verifies the row count, timestamp range, class distribution, missing values, and retained columns. This step is important because the later charts should describe the actual modeling handoff rather than an earlier copy of the raw data.
 
-Its purpose is to validate the cleaned artifact and investigate more complex relationships before the
-baseline-model stage. It does not replace the initial EDA and does not train or select a model.
+The gold table still contains missing values in <code>time_since_last_transaction</code>. This is intentional: filling them before the chronological split would allow information from future rows to influence the imputation value used for older rows.
 
-## Input
+## Analyses performed in the notebook
 
-```text
-gold_financial_fraud_detection_table.csv
-```
+The first detailed analysis compares transactions with and without a recorded time since the previous transaction. It shows both their share of the population and their fraud rate. The purpose is not merely to confirm that values are missing, but to reveal that missingness is associated with the target in this dataset. Because that relationship could reflect synthetic-data bias, a missingness indicator is reserved for a later sensitivity experiment rather than adopted automatically.
 
-The aligned gold table contains the original usable predictors, `transaction_id` for lineage,
-`event_timestamp` for time-aware analysis, and the target. It deliberately preserves missing
-`time_since_last_transaction` values and contains no engineered model features.
+Transaction amounts are then compared by target class using empirical cumulative distribution functions. An ECDF shows the whole distribution without depending on arbitrary histogram bins, while the logarithmic x-axis keeps the strongly skewed amount range readable. A second amount analysis divides observations into twenty equal-frequency groups and measures fraud lift relative to the overall fraud rate. Together, these views test whether different parts of the amount distribution concentrate fraud cases.
 
-## Notebook-only analysis variables
+For categorical variables, the notebook calculates fraud rates for transaction type, merchant category, location, device, and payment channel. The charts include 95% Wilson confidence intervals so that small visual differences are shown together with their uncertainty rather than being treated as established effects.
 
-The notebook temporarily creates hour, weekday, week, quantile, decile, and missingness-status fields.
-These exist only in memory for aggregation and visualization. They are not written to the gold table and
-must not be confused with approved model features.
+Temporal behavior is examined in two ways. An hour-by-weekday heatmap looks for interactions that would disappear in separate hourly and weekday summaries. A weekly view then places fraud rate, a four-week rolling mean, and transaction volume on the same timeline. This makes changes over time and incomplete boundary periods visible and supports the decision to evaluate models chronologically.
 
-## Advanced analyses and charts
+The remaining analyses focus on relationships among numerical variables. A Pearson correlation matrix provides a descriptive view of linear association, but it is not used to select features from the full dataset. Finally, a decile-by-decile heatmap combines spending-deviation and geographic-anomaly scores. This view asks whether combinations of anomaly levels reveal structure that is weak or invisible when either score is considered alone.
 
-All charts appear inline in the executed notebook. No PNG, SVG, CSV, or other chart files are saved.
+## Temporary analytical fields
 
-The notebook includes:
+To produce these summaries, the notebook derives hour, weekday, week, amount quantiles, score deciles, and a missingness-status field. They exist only for analysis inside the notebook. Their presence in a chart does not make them approved model inputs.
 
-### Missingness bias analysis
+This distinction matters because the next experiments need a stable original-feature benchmark. Log amount, calendar fields, and the missingness indicator are plausible candidates, but each should be introduced through a named MLflow experiment so that its effect can be measured independently.
 
-A paired view compares population share and fraud rate for rows where
-`time_since_last_transaction` is observed or missing. This highlights the suspicious fact that missingness
-occurs only among non-fraud records.
+## How this stage informs modeling
 
-### Target-class empirical distribution functions
+The analysis motivates three main modeling choices. First, the low fraud prevalence makes precision–recall metrics more informative than accuracy alone. Second, temporal variation supports a train–validation–test split ordered by <code>event_timestamp</code>. Third, weak individual correlations alongside possible threshold and interaction patterns justify comparing a simple linear reference with nonlinear tree-based models.
 
-An empirical CDF compares the full shape of transaction-amount distributions for fraud and non-fraud
-samples on a logarithmic x-axis. This avoids relying on a single histogram binning choice.
-
-### Amount-quantile fraud lift
-
-Twenty equal-frequency amount groups are compared using lift relative to the overall fraud rate. This
-tests whether the amount distribution contains practically meaningful fraud concentration.
-
-### Categorical rates with Wilson intervals
-
-Fraud rates for transaction, merchant, location, device, and payment categories are shown with 95%
-Wilson confidence intervals. The intervals prevent small rate differences from being presented as strong
-effects without uncertainty.
-
-### Hour-by-weekday heatmap
-
-A two-dimensional heatmap examines temporal interactions that separate hourly and weekday summaries
-could miss.
-
-### Weekly stability and volume
-
-Weekly fraud rates, a four-week rolling mean, and transaction volume are displayed together to assess
-stability, drift, and partial-period effects. These findings support a time-aware model split.
-
-### Numeric correlation matrix
-
-A labeled Pearson matrix examines linear structure among the original numeric predictors and target. It
-is descriptive only and is not used for full-data feature selection.
-
-### Anomaly-score interaction surface
-
-A decile-by-decile heatmap examines whether combinations of spending deviation and geographic anomaly
-show fraud-rate structure that is hidden in one-dimensional summaries.
-
-## Leakage and experiment-control boundary
-
-No imputer, encoder, scaler, sampler, feature selector, or model is fitted. No analysis-derived parameter
-is saved for later model use. Candidate features such as log amount, temporal fields, and a missingness
-indicator remain separate tracked experiments after the original-feature baseline.
-
-## Output
-
-The executed `.ipynb` file is the complete analysis artifact. Its tables, charts, and final evidence-to-
-implication table are visible directly below the corresponding cells.
+These are reasons to test particular approaches, not claims that the EDA has already proved them superior. The next stage, <code>04_baseline_model_comparison_with_mlflow.py</code>, compares non-skill, linear, and fixed nonlinear baseline configurations using the untouched set of original predictors.

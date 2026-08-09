@@ -38,10 +38,10 @@ from sklearn.metrics import (
 )
 from sklearn.pipeline import Pipeline
 
-
 # %% Project paths and feature schema
 PROJECT_DIR = Path(__file__).resolve().parent
 DEFAULT_DATA_PATH = PROJECT_DIR / "gold_financial_fraud_detection_table.csv"
+DEFAULT_FEATURE_REPO_PATH = PROJECT_DIR
 DEFAULT_TRACKING_DB = PROJECT_DIR / "mlflow_tracking.db"
 DEFAULT_ARTIFACT_DIR = PROJECT_DIR / "mlartifacts"
 
@@ -86,10 +86,7 @@ def validate_split_fractions(train_fraction: float, validation_fraction: float) 
 
 def load_gold_table(data_path: Path) -> pd.DataFrame:
     if not data_path.exists():
-        raise FileNotFoundError(
-            f"Gold table not found at {data_path}. "
-            "Run 02_data_pipeline_preprocessing.py first."
-        )
+        raise FileNotFoundError(f"Gold table not found at {data_path}. " "Run 02_data_pipeline_preprocessing.py first.")
 
     header_columns = set(pd.read_csv(data_path, nrows=0).columns)
     missing_columns = sorted(set(REQUIRED_COLUMNS) - header_columns)
@@ -97,16 +94,12 @@ def load_gold_table(data_path: Path) -> pd.DataFrame:
         raise ValueError(f"Missing expected columns: {missing_columns}")
 
     df = pd.read_csv(data_path, usecols=REQUIRED_COLUMNS)
-    df["event_timestamp"] = pd.to_datetime(
-        df["event_timestamp"], errors="raise", format="mixed"
-    )
+    df["event_timestamp"] = pd.to_datetime(df["event_timestamp"], errors="raise", format="mixed")
     df[TARGET_COLUMN] = df[TARGET_COLUMN].astype("int8")
     return df
 
 
-def make_optional_sample(
-    df: pd.DataFrame, sample_rows: int | None, random_state: int
-) -> pd.DataFrame:
+def make_optional_sample(df: pd.DataFrame, sample_rows: int | None, random_state: int) -> pd.DataFrame:
     if sample_rows is None or sample_rows >= len(df):
         return df
     if sample_rows < 1_000:
@@ -114,9 +107,7 @@ def make_optional_sample(
     return stratified_sample(df, sample_rows, random_state)
 
 
-def stratified_sample(
-    df: pd.DataFrame, sample_rows: int, random_state: int
-) -> pd.DataFrame:
+def stratified_sample(df: pd.DataFrame, sample_rows: int, random_state: int) -> pd.DataFrame:
     """Return a reproducible class-stratified sample without altering source rows."""
     if sample_rows >= len(df):
         return df.copy()
@@ -205,6 +196,36 @@ def dataset_metadata(data_path: Path, calculate_hash: bool = True) -> dict[str, 
     }
 
 
+def load_modeling_table(
+    *,
+    data_source: str,
+    data_path: Path,
+    feature_repo_path: Path,
+    calculate_hash: bool,
+) -> tuple[pd.DataFrame, dict[str, Any], dict[str, str | int | float | bool]]:
+    """Load the canonical Feast table or an explicitly requested CSV fallback."""
+    if data_source == "feast":
+        from fraud_feature_store import load_feast_training_table
+
+        return load_feast_training_table(
+            feature_repo_path,
+            validate_hashes=calculate_hash,
+        )
+    if data_source == "csv":
+        table = load_gold_table(data_path)
+        return (
+            table,
+            dataset_metadata(data_path, calculate_hash=calculate_hash),
+            {
+                "data_interface": "direct_csv_fallback",
+                "feature_store": "not_used",
+                "feature_version": "not_applicable",
+                "feature_hash_validation_enabled": calculate_hash,
+            },
+        )
+    raise ValueError(f"Unknown data source: {data_source}")
+
+
 def split_summary(split_df: pd.DataFrame) -> dict[str, Any]:
     return {
         "rows": int(len(split_df)),
@@ -271,9 +292,7 @@ def best_f1_threshold(y_true: pd.Series, y_score: np.ndarray) -> tuple[float, fl
     return float(thresholds[best_index]), float(f1_values[best_index])
 
 
-def classification_metrics(
-    y_true: pd.Series, y_score: np.ndarray, threshold: float
-) -> dict[str, float | int]:
+def classification_metrics(y_true: pd.Series, y_score: np.ndarray, threshold: float) -> dict[str, float | int]:
     y_pred = (y_score >= threshold).astype(int)
     tn, fp, fn, tp = confusion_matrix(y_true, y_pred, labels=[0, 1]).ravel()
     specificity = tn / (tn + fp) if (tn + fp) else 0.0
@@ -412,23 +431,29 @@ def log_common_metadata(
     validation_df: pd.DataFrame,
     test_df: pd.DataFrame | None,
     source_files: Iterable[Path],
+    feature_columns: list[str],
+    categorical_features: list[str],
+    numeric_features: list[str],
+    feature_metadata: dict[str, Any] | None,
 ) -> None:
     combined_params = {**dataset_info, **run_context, **scalar_pipeline_params(pipeline)}
     mlflow.log_params(combined_params)
     mlflow.log_dict(environment_metadata(), "reproducibility/environment.json")
-    mlflow.log_dict(
-        {
-            "categorical_features": CATEGORICAL_FEATURES,
-            "numeric_features": NUMERIC_FEATURES,
-            "excluded_columns": LINEAGE_COLUMNS + [TARGET_COLUMN],
-            "postponed_feature_experiments": [
-                "amount_log1p",
-                "timestamp_hour_weekday_month",
-                "time_since_last_transaction_missing_indicator",
-            ],
-        },
-        "reproducibility/feature_set.json",
-    )
+    feature_record: dict[str, Any] = {
+        "feature_columns": feature_columns,
+        "categorical_features": categorical_features,
+        "numeric_features": numeric_features,
+        "excluded_columns": LINEAGE_COLUMNS + [TARGET_COLUMN],
+    }
+    if feature_metadata:
+        feature_record.update(feature_metadata)
+    elif feature_columns == FEATURE_COLUMNS:
+        feature_record["postponed_feature_experiments"] = [
+            "amount_log1p",
+            "timestamp_hour_weekday_month",
+            "time_since_last_transaction_missing_indicator",
+        ]
+    mlflow.log_dict(feature_record, "reproducibility/feature_set.json")
     summaries: dict[str, Any] = {
         "train": split_summary(train_df),
         "validation": split_summary(validation_df),
@@ -437,7 +462,7 @@ def log_common_metadata(
         summaries["test"] = split_summary(test_df)
     mlflow.log_dict(summaries, "reproducibility/split_summary.json")
     for source_file in source_files:
-            mlflow.log_artifact(str(source_file), artifact_path="reproducibility/source")
+        mlflow.log_artifact(str(source_file), artifact_path="reproducibility/source")
 
 
 # %% Fit, evaluate, and log one MLflow run
@@ -453,11 +478,25 @@ def fit_evaluate_and_log(
     source_files: Iterable[Path],
     tags: dict[str, str] | None = None,
     log_model: bool = True,
+    feature_columns: list[str] | None = None,
+    categorical_features: list[str] | None = None,
+    numeric_features: list[str] | None = None,
+    feature_metadata: dict[str, Any] | None = None,
 ) -> RunResult:
     """Fit a pipeline inside an MLflow run and log reproducible evaluation evidence."""
-    x_train = train_df[FEATURE_COLUMNS]
+    selected_features = list(FEATURE_COLUMNS if feature_columns is None else feature_columns)
+    selected_categorical = list(CATEGORICAL_FEATURES if categorical_features is None else categorical_features)
+    selected_numeric = list(NUMERIC_FEATURES if numeric_features is None else numeric_features)
+    declared_features = selected_categorical + selected_numeric
+
+    if len(selected_features) != len(set(selected_features)):
+        raise ValueError("The feature list contains duplicate column names.")
+    if set(declared_features) != set(selected_features):
+        raise ValueError("Categorical and numeric feature declarations must match the selected feature columns.")
+
+    x_train = train_df[selected_features]
     y_train = train_df[TARGET_COLUMN]
-    x_validation = validation_df[FEATURE_COLUMNS]
+    x_validation = validation_df[selected_features]
     y_validation = validation_df[TARGET_COLUMN]
 
     with mlflow.start_run(run_name=run_name) as run:
@@ -471,6 +510,10 @@ def fit_evaluate_and_log(
             validation_df=validation_df,
             test_df=test_df,
             source_files=source_files,
+            feature_columns=selected_features,
+            categorical_features=selected_categorical,
+            numeric_features=selected_numeric,
+            feature_metadata=feature_metadata,
         )
 
         training_start = perf_counter()
@@ -478,19 +521,11 @@ def fit_evaluate_and_log(
         training_seconds = perf_counter() - training_start
 
         validation_start = perf_counter()
-        validation_scores, default_threshold, score_type = predict_scores(
-            pipeline, x_validation
-        )
+        validation_scores, default_threshold, score_type = predict_scores(pipeline, x_validation)
         validation_inference_seconds = perf_counter() - validation_start
-        tuned_threshold, validation_best_f1 = best_f1_threshold(
-            y_validation, validation_scores
-        )
-        validation_default = classification_metrics(
-            y_validation, validation_scores, default_threshold
-        )
-        validation_tuned = classification_metrics(
-            y_validation, validation_scores, tuned_threshold
-        )
+        tuned_threshold, validation_best_f1 = best_f1_threshold(y_validation, validation_scores)
+        validation_default = classification_metrics(y_validation, validation_scores, default_threshold)
+        validation_tuned = classification_metrics(y_validation, validation_scores, tuned_threshold)
 
         mlflow.log_params(
             {
@@ -504,9 +539,7 @@ def fit_evaluate_and_log(
                 "training_seconds": training_seconds,
                 "validation_inference_seconds": validation_inference_seconds,
                 "validation_inference_rows_per_second": (
-                    len(validation_df) / validation_inference_seconds
-                    if validation_inference_seconds > 0
-                    else 0.0
+                    len(validation_df) / validation_inference_seconds if validation_inference_seconds > 0 else 0.0
                 ),
                 "validation_best_f1_from_threshold_search": validation_best_f1,
             }
@@ -518,18 +551,14 @@ def fit_evaluate_and_log(
         test_scores: np.ndarray | None = None
         if test_df is not None:
             test_start = perf_counter()
-            test_scores, _, _ = predict_scores(pipeline, test_df[FEATURE_COLUMNS])
+            test_scores, _, _ = predict_scores(pipeline, test_df[selected_features])
             test_inference_seconds = perf_counter() - test_start
-            test_metrics = classification_metrics(
-                test_df[TARGET_COLUMN], test_scores, tuned_threshold
-            )
+            test_metrics = classification_metrics(test_df[TARGET_COLUMN], test_scores, tuned_threshold)
             mlflow.log_metrics(
                 {
                     "test_inference_seconds": test_inference_seconds,
                     "test_inference_rows_per_second": (
-                        len(test_df) / test_inference_seconds
-                        if test_inference_seconds > 0
-                        else 0.0
+                        len(test_df) / test_inference_seconds if test_inference_seconds > 0 else 0.0
                     ),
                 }
             )

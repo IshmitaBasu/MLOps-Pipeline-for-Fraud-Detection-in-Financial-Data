@@ -1,0 +1,4 @@
+project: financial_fraud_detection
+registry: feature_repo/data/registry.db
+provider: local
+online_store: null

@@ -1,10 +1,11 @@
-"""Compare a small, EDA-justified set of fraud models with MLflow.
+"""Compare a fixed, EDA-justified set of baseline fraud models with MLflow.
 
-This script keeps the original cleaned feature set fixed and compares a compact
-set of candidate models required for the thesis: a non-skill reference, an
-interpretable linear model, and tree-based nonlinear models. KNN is available as
-an explicit optional feasibility check, but it is not part of the default
-full-data comparison because the dataset is large and mixed-type.
+This script implements the complete baseline model-development stage: a
+non-skill reference, an interpretable linear model, and fixed nonlinear model
+configurations. These models use only the original cleaned predictors and are
+not the later advanced experiments involving engineered features, resampling,
+or systematic hyperparameter tuning. KNN remains an optional sampled
+feasibility check because the dataset is large and mixed-type.
 """
 
 # %% Imports
@@ -33,31 +34,30 @@ from sklearn.tree import DecisionTreeClassifier
 from fraud_modeling_utils import (
     CATEGORICAL_FEATURES,
     DEFAULT_DATA_PATH,
+    DEFAULT_FEATURE_REPO_PATH,
     NUMERIC_FEATURES,
     PROJECT_DIR,
     configure_mlflow,
-    dataset_metadata,
     fit_evaluate_and_log,
-    load_gold_table,
+    load_modeling_table,
     make_optional_sample,
     stratified_sample,
     time_aware_split,
     validate_split_fractions,
 )
 
-
-# %% Candidate model registry
-CORE_MODELS = (
+# %% Baseline model registry
+CORE_BASELINE_MODELS = (
     "dummy_prior",
     "logistic_sgd",
     "random_forest_depth_12",
     "hist_gradient_boosting_leaves_31",
 )
-OPTIONAL_MODELS = (
+OPTIONAL_BASELINE_MODELS = (
     "decision_tree_depth_10",
     "knn_neighbors_31",
 )
-ALL_MODELS = CORE_MODELS + OPTIONAL_MODELS
+ALL_BASELINE_MODELS = CORE_BASELINE_MODELS + OPTIONAL_BASELINE_MODELS
 
 MODEL_RATIONALE = {
     "dummy_prior": (
@@ -73,12 +73,10 @@ MODEL_RATIONALE = {
         "rules and interactions visible in EDA improve prediction."
     ),
     "random_forest_depth_12": (
-        "Robust tree ensemble for nonlinear effects and feature interactions in "
-        "mixed tabular fraud data."
+        "Robust tree ensemble for nonlinear effects and feature interactions in " "mixed tabular fraud data."
     ),
     "hist_gradient_boosting_leaves_31": (
-        "Stronger tabular benchmark for nonlinear patterns, using compact "
-        "ordinal categorical preprocessing."
+        "Stronger tabular benchmark for nonlinear patterns, using compact " "ordinal categorical preprocessing."
     ),
     "knn_neighbors_31": (
         "Optional distance-based feasibility check; sampled by default because "
@@ -98,22 +96,38 @@ class ModelConfiguration:
 
 # %% Command-line arguments
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        description="Compare EDA-justified fraud candidate models with MLflow."
+    parser = argparse.ArgumentParser(description="Compare fixed original-feature fraud baselines with MLflow.")
+    parser.add_argument(
+        "--data-path",
+        type=Path,
+        default=DEFAULT_DATA_PATH,
+        help="Path to the cleaned gold table when --data-source csv is used.",
     )
-    parser.add_argument("--data-path", type=Path, default=DEFAULT_DATA_PATH)
+    parser.add_argument(
+        "--data-source",
+        choices=("feast", "csv"),
+        default="feast",
+        help="Canonical Feast retrieval or an explicit direct-CSV fallback.",
+    )
+    parser.add_argument(
+        "--feature-repo-path",
+        type=Path,
+        default=DEFAULT_FEATURE_REPO_PATH,
+        help="Directory containing feature_store.yaml and the Feast registry.",
+    )
     parser.add_argument(
         "--experiment-name",
-        default="financial-fraud-original-feature-candidate-models",
+        default=None,
+        help="Optional MLflow experiment override.",
     )
     parser.add_argument(
         "--models",
         nargs="+",
-        choices=ALL_MODELS,
-        default=list(CORE_MODELS),
+        choices=ALL_BASELINE_MODELS,
+        default=list(CORE_BASELINE_MODELS),
         help=(
-            "Candidate models to compare. Defaults to dummy, logistic, random "
-            "forest, and histogram gradient boosting."
+            "Baseline configurations to compare. Defaults to dummy, logistic, "
+            "random forest, and histogram gradient boosting."
         ),
     )
     parser.add_argument(
@@ -212,7 +226,7 @@ def ordinal_categorical_preprocessing() -> ColumnTransformer:
     )
 
 
-# %% Candidate configurations
+# %% Baseline configurations
 def configurations() -> dict[str, ModelConfiguration]:
     return {
         "dummy_prior": ModelConfiguration(
@@ -301,9 +315,7 @@ def build_pipeline(config: ModelConfiguration, random_state: int) -> Pipeline:
             **config.parameters,
         )
     elif config.name == "hist_gradient_boosting_leaves_31":
-        categorical_mask = [False] * len(NUMERIC_FEATURES) + [True] * len(
-            CATEGORICAL_FEATURES
-        )
+        categorical_mask = [False] * len(NUMERIC_FEATURES) + [True] * len(CATEGORICAL_FEATURES)
         estimator = HistGradientBoostingClassifier(
             categorical_features=categorical_mask,
             class_weight="balanced",
@@ -356,7 +368,8 @@ def run_context(
     comparison_scope: str,
 ) -> dict[str, Any]:
     return {
-        "workflow_stage": "candidate_model_comparison",
+        "workflow_stage": "baseline_model_comparison",
+        "data_interface": args.data_source,
         "configuration_name": config.name,
         "model_family": config.model_family,
         "preprocessing_family": config.preprocessing,
@@ -374,54 +387,71 @@ def run_context(
     }
 
 
-# %% Candidate-model comparison runner
+# %% Baseline-model comparison runner
 def main() -> None:
     args = parse_args()
     validate_split_fractions(args.train_fraction, args.validation_fraction)
-    if "knn_neighbors_31" in args.models and (
-        args.knn_training_rows < 1_000 or args.knn_evaluation_rows < 1_000
-    ):
+    if "knn_neighbors_31" in args.models and (args.knn_training_rows < 1_000 or args.knn_evaluation_rows < 1_000):
         raise ValueError("KNN sample limits must each be at least 1,000 rows.")
 
-    data_info = dataset_metadata(
-        args.data_path, calculate_hash=not args.skip_data_hash
+    df, data_info, feature_lineage = load_modeling_table(
+        data_source=args.data_source,
+        data_path=args.data_path,
+        feature_repo_path=args.feature_repo_path,
+        calculate_hash=not args.skip_data_hash,
     )
-    df = load_gold_table(args.data_path)
     source_row_count = len(df)
     df = make_optional_sample(df, args.sample_rows, args.random_state)
-    train_df, validation_df, test_df = time_aware_split(
-        df, args.train_fraction, args.validation_fraction
+    train_df, validation_df, test_df = time_aware_split(df, args.train_fraction, args.validation_fraction)
+    experiment_name = args.experiment_name or (
+        "financial-fraud-feast-original-feature-baseline-comparison"
+        if args.data_source == "feast"
+        else "financial-fraud-original-feature-baseline-comparison"
     )
-    tracking_uri = configure_mlflow(args.experiment_name)
-    source_files = [Path(__file__).resolve(), PROJECT_DIR / "fraud_modeling_utils.py"]
+    tracking_uri = configure_mlflow(experiment_name)
+    source_files = [
+        Path(__file__).resolve(),
+        PROJECT_DIR / "fraud_modeling_utils.py",
+    ]
+    if args.data_source == "feast":
+        source_files.extend(
+            [
+                PROJECT_DIR / "fraud_feature_store.py",
+                PROJECT_DIR / "fraud_feature_definitions.py",
+                PROJECT_DIR / "feature_store.yaml",
+            ]
+        )
 
     config_by_name = configurations()
     selected_configs = [config_by_name[model_name] for model_name in args.models]
 
-    print("Running EDA-justified candidate model comparison...")
+    print("Running fixed original-feature baseline model comparison...")
     results = []
     for config in selected_configs:
-        candidate_train, candidate_validation, candidate_test, scope = experiment_frames(
+        model_train, model_validation, model_test, scope = experiment_frames(
             args, config, train_df, validation_df, test_df
         )
         result = fit_evaluate_and_log(
             pipeline=build_pipeline(config, args.random_state),
-            run_name=f"candidate__{config.name}",
-            train_df=candidate_train,
-            validation_df=candidate_validation,
-            test_df=candidate_test,
+            run_name=f"baseline__{config.name}",
+            train_df=model_train,
+            validation_df=model_validation,
+            test_df=model_test,
             dataset_info=data_info,
-            run_context=run_context(
-                args,
-                config,
-                source_row_count,
-                len(df),
-                scope,
-            ),
+            run_context={
+                **run_context(
+                    args,
+                    config,
+                    source_row_count,
+                    len(df),
+                    scope,
+                ),
+                **feature_lineage,
+            },
             source_files=source_files,
             tags={
-                "test_usage": "final_candidate_evaluation",
-                "run_role": "candidate_model",
+                "test_usage": "final_baseline_evaluation",
+                "run_role": "non_skill_reference" if config.name == "dummy_prior" else "baseline_model",
                 "comparison_scope": scope,
             },
             log_model=True,
@@ -451,17 +481,15 @@ def main() -> None:
             }
         )
 
-    full_data_candidates = [
-        row for row in comparison_summary if row["comparison_scope"] == "full_data"
-    ]
-    selection_pool = full_data_candidates or comparison_summary
-    selection_scope = "full_data" if full_data_candidates else "sampled_feasibility"
+    full_data_models = [row for row in comparison_summary if row["comparison_scope"] == "full_data"]
+    selection_pool = full_data_models or comparison_summary
+    selection_scope = "full_data" if full_data_models else "sampled_feasibility"
     selected_overall = max(
         selection_pool,
         key=lambda row: row["validation_pr_auc"],
     )
 
-    with mlflow.start_run(run_name="candidate_model_comparison_summary") as summary_run:
+    with mlflow.start_run(run_name="baseline_model_comparison_summary") as summary_run:
         mlflow.set_tags(
             {
                 "run_role": "comparison_summary",
@@ -472,33 +500,35 @@ def main() -> None:
         mlflow.log_dict(
             {
                 "selection_metric": "validation_pr_auc",
-                "model_candidates": comparison_summary,
+                "baseline_models": comparison_summary,
                 "model_rationale": MODEL_RATIONALE,
-                "overall_selected_model": selected_overall,
+                "selected_baseline_model": selected_overall,
             },
-            "candidate_model_comparison_summary.json",
+            "baseline_model_comparison_summary.json",
         )
         mlflow.log_params(
             {
-                "overall_selected_model": selected_overall["model"],
-                "overall_selected_model_family": selected_overall["model_family"],
-                "overall_selection_basis": "validation_pr_auc_only",
-                "overall_selection_scope": selection_scope,
-                "default_models": ",".join(CORE_MODELS),
+                "selected_baseline_model": selected_overall["model"],
+                "selected_baseline_model_family": selected_overall["model_family"],
+                "selection_basis": "validation_pr_auc_only",
+                "selection_scope": selection_scope,
+                "default_models": ",".join(CORE_BASELINE_MODELS),
+                **feature_lineage,
             }
         )
         mlflow.log_metric(
-            "overall_selected_validation_pr_auc",
+            "selected_baseline_validation_pr_auc",
             selected_overall["validation_pr_auc"],
         )
         mlflow.log_metric(
-            "overall_selected_test_pr_auc",
+            "selected_baseline_test_pr_auc",
             selected_overall["test_pr_auc"],
         )
 
-    print("MLflow candidate model comparison complete.")
+    print("MLflow baseline model comparison complete.")
     print(f"Tracking URI: {tracking_uri}")
-    print(f"Experiment: {args.experiment_name}")
+    print(f"Experiment: {experiment_name}")
+    print(f"Data interface: {feature_lineage['data_interface']}")
     print(f"Comparison summary run: {summary_run.info.run_id}")
     print(
         "Selected by validation PR-AUC: "
