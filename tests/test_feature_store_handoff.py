@@ -68,6 +68,7 @@ class FeatureStoreHandoffTest(unittest.TestCase):
                         "project: financial_fraud_detection",
                         "registry: feature_repo/data/registry.db",
                         "provider: local",
+                        "online_store: null",
                     ]
                 ),
                 encoding="utf-8",

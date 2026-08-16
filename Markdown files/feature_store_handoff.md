@@ -2,6 +2,8 @@
 
 The local Feast repository provides a clear boundary between the preprocessing script and the model experiments. Its role is not to clean data or train models. Instead, it defines which fields constitute a versioned feature set and reconstructs the training table from features and labels at the correct event time.
 
+The automated batch trigger strengthens this boundary. It appends new batches to separate raw and clean SQLite tables, but it neither updates the canonical Feast registry nor invokes training. Selecting database batches for a future model snapshot remains a separate decision.
+
 The workflow is:
 
 ~~~text
@@ -28,6 +30,8 @@ feature_repo/metadata/feature_metadata_v1.json
 The feature table contains the transaction key, event timestamp, and ten original prediction-time variables. The label table contains the same key and timestamp together with <code>is_fraud</code>. This separation is deliberate: Feast registers the predictors, while the target remains outside the feature view.
 
 The schema file describes the columns and their Feast-compatible types. The metadata file records the feature version, row and fraud counts, cleaning statistics, artifact hashes, preprocessing-source hash, and known prototype limitations. These records turn the handoff into an explicit data contract rather than an undocumented pair of files.
+
+Automated arrivals are recorded in <code>data/fraud_pipeline.db</code> rather than written into the Feast repository. The existing <code>v1</code> files and registry therefore remain stable until an explicit snapshot and promotion step is introduced. This preserves the reproducibility of the completed baseline while allowing the data pipeline to continue ingesting new records.
 
 ## What the Feast definitions register
 
@@ -75,3 +79,5 @@ Pop-Location
 ~~~
 
 The baseline comparison script can then use Feast without additional options. Passing <code>--data-source csv</code> deliberately bypasses this interface for historical reproducibility. Passing <code>--skip-data-hash</code> avoids recomputing large-file hashes during a quick smoke test, but it does not remove the hashes already stored in the handoff metadata.
+
+To process newly arrived batches independently, place them in <code>data/inbox</code> and schedule <code>automation/run_data_pipeline.py</code>. The <code>ingestion_batches</code> database table records whether the data stage succeeded and enforces that the ML pipeline was not triggered. See <code>automated_data_pipeline.md</code> for ingestion, duplicate, failure, status, and scheduling details.

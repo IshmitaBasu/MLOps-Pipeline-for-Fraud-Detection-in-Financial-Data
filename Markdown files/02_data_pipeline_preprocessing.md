@@ -4,6 +4,8 @@ The preprocessing script, <code>02_data_pipeline_preprocessing.py</code>, turns 
 
 It does not impute missing values, encode categories, scale numerical fields, resample the target, or engineer model features. Those operations learn something from the data and therefore belong inside the modeling pipeline, where they can be fitted on training rows only.
 
+The script is also a parameterized command-line entry point and exposes a reusable <code>prepare_dataframes</code> function. Its default invocation preserves the canonical <code>v1</code> Feast workflow. The independent automation layer reuses the same validation and cleaning functions when it appends new batches to the local data-pipeline database, so manual and automated preparation follow one set of rules.
+
 ## From the raw file to the cleaned table
 
 The script begins by locating <code>financial_fraud_detection_dataset.csv</code>. It reads a five-row preview first so that the input can be inspected quickly, then loads the complete file using an explicit type map. Column names are standardized and checked against the expected schema. If a required field is missing, the script stops rather than producing an incomplete downstream artifact.
@@ -76,6 +78,22 @@ feature_repo/metadata/feature_metadata_v1.json
 ~~~
 
 The CSV, Parquet, and JSON outputs are written atomically: each result is completed in a temporary file before it replaces the final path. This reduces the risk of leaving a partially written artifact after an interrupted run. The final verification step checks that every expected file exists and that the saved row counts agree with the cleaned table.
+
+The parameterized command can still create a separate named artifact set when an explicit standalone snapshot is needed. Automated arrivals do not create Feast files, however: they append to <code>data/fraud_pipeline.db</code>. Consequently, an arriving batch cannot silently replace the artifacts used by the existing baseline model.
+
+## Independent automated trigger
+
+The companion script <code>automation/run_data_pipeline.py</code> scans <code>data/inbox</code> for stable CSV files. It calculates a content hash, skips previously successful content, stores the original columns in <code>raw_transactions</code>, applies this script's cleaning functions to the new batch, and stores the result in <code>clean_transactions</code>. The <code>ingestion_batches</code> table replaces separate manifest and lifecycle folders.
+
+Successful and duplicate CSV inputs are removed after the database records them. Invalid inputs stay in the inbox with a <code>.failed</code> suffix. The automation does not call the model-comparison script, MLflow training functions, model registration, or deployment. This makes data arrival an ingestion event rather than an automatic retraining event. Full operational and first-run instructions are documented in <code>automated_data_pipeline.md</code>.
+
+Run one inbox scan with:
+
+~~~powershell
+.\masters_thesis\Scripts\python.exe ".\Code snippets\automation\run_data_pipeline.py"
+~~~
+
+For the complete first-time sequence—including copying the sample batch, using the immediate stability override, checking outputs, running tests, and optionally installing the scheduled task—see <code>automated_data_pipeline.md</code>.
 
 ## Registering the Feast definitions
 

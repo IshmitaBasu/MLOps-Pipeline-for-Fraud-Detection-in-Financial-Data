@@ -12,6 +12,9 @@
 /feature_repo/data/registry.db*
 /feature_repo/data/online_store.db*
 /data/online.db*
+/data/inbox/*.csv
+/data/inbox/*.failed
+/data/fraud_pipeline.db*
 /advanced_implementation/
 __pycache__/
 *.pyc

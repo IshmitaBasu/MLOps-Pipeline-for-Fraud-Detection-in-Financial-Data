@@ -25,6 +25,8 @@ Random Forest uses 100 trees, a maximum depth of 12, a minimum leaf size of 100,
 
 The script loads the versioned Feast v1 feature set. The separate label table becomes the entity dataframe for historical retrieval, and the returned table is validated against the handoff metadata. A direct CSV fallback is available only when explicitly requested.
 
+This ML entry point is intentionally independent from <code>automation/run_data_pipeline.py</code>. A new CSV arrival is appended to the raw and clean data-pipeline database tables, but it does not start this script or modify the canonical <code>v1</code> registry. Retraining therefore requires a separate manual or future rule-based snapshot decision and does not consume resources merely because data arrived.
+
 An optional stratified sample can be taken for a smoke run. Whether sampled or complete, transactions are sorted by event time and divided into the same 70% training, 15% validation, and 15% test partitions. Every default model therefore sees equivalent historical periods.
 
 Each model is fitted on the training partition. Its fraud scores on validation data are used both to calculate validation PR-AUC and to select the F1-maximizing decision threshold. The selected threshold is then applied unchanged to the chronological test partition.

@@ -6,7 +6,7 @@
 
 This folder contains the current data-analysis and preparation work for my Master's thesis on building an end-to-end MLOps pipeline for financial fraud detection.
 
-The project focuses on two things at the same time: detecting fraudulent transactions and showing how the machine-learning workflow can be made reproducible, traceable, and maintainable. Data preparation, the versioned local Feast handoff, and the full-data Feast-backed baseline model comparison are complete. The current milestone is to finalize and review the baseline results before starting advanced model development.
+The project focuses on two things at the same time: detecting fraudulent transactions and showing how the machine-learning workflow can be made reproducible, traceable, and maintainable. Data preparation, the versioned local Feast handoff, automated batch-data triggering, and the full-data Feast-backed baseline model comparison are complete. The current milestone is to finalize and review the baseline results before starting advanced model development.
 
 ## Current Workflow
 
@@ -15,12 +15,13 @@ The workflow follows this process-model order:
 1. Raw-data exploratory analysis - complete
 2. Data cleaning and minimal preparation - complete
 3. Versioned feature/label handoff and Feast registration - complete
-4. Advanced post-cleaning EDA - complete
-5. Controlled original-feature baseline model comparison with experiment tracking - complete
-6. Advanced model development, including feature engineering, resampling, tuning, and additional boosting libraries - planned after the baseline milestone
-7. Model acceptance and MLflow champion registration - planned
-8. FastAPI serving and versioned prediction logging - planned
-9. Batch monitoring, rule-based flags, and Streamlit visualization - planned
+4. Independently triggered incremental batch ingestion into raw and clean database tables - complete
+5. Advanced post-cleaning EDA - complete
+6. Controlled original-feature baseline model comparison with experiment tracking - complete
+7. Advanced model development, including feature engineering, resampling, tuning, and additional boosting libraries - planned after the baseline milestone
+8. Model acceptance and MLflow champion registration - planned
+9. FastAPI serving and versioned prediction logging - planned
+10. Batch monitoring, rule-based flags, and Streamlit visualization - planned
 
 This order is intentional. The initial EDA happens before cleaning so that the cleaning decisions are based on evidence from the raw data. The baseline stage compares fixed non-skill, linear, and nonlinear configurations using only the original predictors. Feature engineering, resampling, systematic tuning, and additional boosting libraries are reserved for separate tracked experiments in the advanced stage.
 
@@ -34,6 +35,8 @@ This order is intentional. The initial EDA happens before cleaning so that the c
 - Found that `time_since_last_transaction` missingness occurs only among non-fraud rows.
 - Updated the preprocessing pipeline to create a minimally cleaned gold table.
 - Added versioned Parquet feature and label handoffs, explicit feature definitions, schema/lineage metadata, and a local Feast registry.
+- Added an independently schedulable inbox trigger that appends stable CSV batches to local raw and clean SQLite tables without starting the ML pipeline.
+- Added checksum-based duplicate prevention and a database ingestion log containing success, duplicate, and failure outcomes.
 - Preserved missing values for later train-only imputation instead of filling them globally.
 - Avoided pre-baseline engineered features such as log amount, temporal fields, and missingness flags.
 - Created an advanced post-cleaning EDA notebook with inline charts only.
@@ -92,6 +95,12 @@ Code snippets/
 |-- 01_initial_raw_data_eda.ipynb              # Initial EDA on the untouched raw CSV
 |-- initial_raw_data_eda_report_v1.md          # Detailed raw EDA findings
 |-- 02_data_pipeline_preprocessing.py          # Cleaning and minimal preparation pipeline
+|-- automation/
+|   |-- run_data_pipeline.py                   # One-shot inbox scanner for scheduled execution
+|   `-- register_windows_task.ps1              # Optional local Task Scheduler registration
+|-- data/
+|   |-- inbox/                                 # New CSV batches arrive here
+|   `-- fraud_pipeline.db                      # Generated raw, clean, and ingestion-log tables
 |-- data_quality_report_v1.md                  # Generated quality report from preprocessing
 |-- feature_store.yaml                         # Local Feast project configuration
 |-- fraud_feature_definitions.py               # Feast entity, feature view, and feature service
@@ -105,7 +114,8 @@ Code snippets/
 |-- fraud_modeling_utils.py                    # Shared splitting, evaluation, plotting, and tracking logic
 |-- Markdown files/                            # Documentation for pipeline, EDA, Feast, and modeling code
 |-- tests/
-|   `-- test_feature_store_handoff.py          # Feast handoff round-trip integration test
+|   |-- test_feature_store_handoff.py          # Feast handoff round-trip integration test
+|   `-- test_automated_data_pipeline.py        # Trigger, duplicate, failure, and separation tests
 |-- Architecture_Diagram.drawio                # Component, activity, and deployment diagrams
 |-- sample_financial_fraud_detection_dataset.csv
 |-- README.md
@@ -138,7 +148,7 @@ From the thesis workspace, run the preprocessing script with:
 .\masters_thesis\Scripts\python.exe ".\Code snippets\02_data_pipeline_preprocessing.py"
 ```
 
-This writes the gold CSV and the versioned Parquet feature/label handoff. Register the definitions after the handoff files exist:
+This unchanged command writes the canonical `v1` gold CSV and Parquet feature/label handoff used by the current ML pipeline. Register the definitions after the handoff files exist:
 
 ```powershell
 Push-Location ".\Code snippets"
@@ -199,10 +209,11 @@ Open the local MLflow interface on Windows with one worker:
 - Build the Streamlit monitoring dashboard.
 - Package the MLflow, FastAPI, and Streamlit services for the planned local Docker deployment.
 - Add serving, monitoring, cost, registration, and end-to-end integration tests.
+- Define the human or rule-based promotion decision that selects an automated batch for a future ML experiment; do not retrain solely because data arrived.
 
 ## Status
 
-Data understanding, minimal preparation, the full Feast handoff, Feast historical retrieval, direct-CSV experiments, and the canonical full-data Feast-backed baseline comparison are complete. The current task is to finish the baseline results document and create a clean Git checkpoint. Random Forest is the strongest fixed original-feature baseline configuration, but it has not been formally accepted or registered as a champion model. Advanced feature engineering, resampling, systematic tuning, additional boosting libraries, serving, prediction logging, monitoring, the Streamlit dashboard, and Docker deployment remain outside the current milestone.
+Data understanding, minimal preparation, incremental raw/clean batch ingestion, the full Feast handoff, Feast historical retrieval, direct-CSV experiments, and the canonical full-data Feast-backed baseline comparison are complete. Data arrival now triggers only validation and database ingestion; it does not trigger training or modify the frozen Feast `v1` baseline. The current task is to finish the baseline results document and create a clean Git checkpoint. Random Forest is the strongest fixed original-feature baseline configuration, but it has not been formally accepted or registered as a champion model. Advanced feature engineering, resampling, systematic tuning, additional boosting libraries, serving, prediction logging, monitoring, the Streamlit dashboard, and Docker deployment remain outside the current milestone.
 
 The three UML diagrams in `Architecture_Diagram.drawio` describe the final target thesis prototype. They include both implemented components and the remaining serving and monitoring components listed above.
 

@@ -19,8 +19,10 @@
 
 # %%
 # This cell imports the standard library and data-analysis packages used throughout the pipeline.
+import argparse
 import hashlib
 import json
+import re
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -28,15 +30,12 @@ import pandas as pd
 
 # %%
 # This cell defines project paths, dataset names, expected schema, and the final columns to save.
-DEFAULT_BASE_DIR = Path(r"D:\Germany\Documents\Magdeburg\Semester Documents\Sem 5\Thesis\Code snippets")
+DEFAULT_BASE_DIR = Path(__file__).resolve().parent
 DATASET_FILE_NAME = "financial_fraud_detection_dataset.csv"
 OUTPUT_FILE_NAME = "gold_financial_fraud_detection_table.csv"
-DATA_QUALITY_REPORT_FILE_NAME = "data_quality_report_v1.md"
-FEATURE_VERSION = "v1"
-FEATURE_TABLE_FILE_NAME = f"fraud_features_{FEATURE_VERSION}.parquet"
-LABEL_TABLE_FILE_NAME = f"fraud_labels_{FEATURE_VERSION}.parquet"
-FEATURE_SCHEMA_FILE_NAME = f"feature_schema_{FEATURE_VERSION}.json"
-FEATURE_METADATA_FILE_NAME = f"feature_metadata_{FEATURE_VERSION}.json"
+DEFAULT_FEATURE_VERSION = "v1"
+# Retained as a public alias for existing imports and notebooks.
+FEATURE_VERSION = DEFAULT_FEATURE_VERSION
 
 DTYPE_MAP = {
     "transaction_id": "string",
@@ -134,22 +133,35 @@ LABEL_HANDOFF_COLUMNS = [
 # This cell finds the dataset and defines the output files.
 def build_paths(
     base_dir: Path = DEFAULT_BASE_DIR,
+    *,
+    raw_file: Path | None = None,
+    output_dir: Path | None = None,
+    feature_version: str = DEFAULT_FEATURE_VERSION,
 ) -> tuple[Path, Path, Path, Path, Path, Path, Path]:
-    raw_file = base_dir / DATASET_FILE_NAME
+    validate_feature_version(feature_version)
+    base_dir = base_dir.resolve()
+    requested_raw_file = raw_file
+    raw_file = (raw_file or (base_dir / DATASET_FILE_NAME)).resolve()
 
     # Useful when the script is run from the folder that contains the CSV.
-    if not raw_file.exists():
-        base_dir = Path.cwd()
-        raw_file = base_dir / DATASET_FILE_NAME
+    if requested_raw_file is None and not raw_file.exists():
+        raw_file = (Path.cwd() / DATASET_FILE_NAME).resolve()
 
-    output_file = base_dir / OUTPUT_FILE_NAME
-    report_file = base_dir / DATA_QUALITY_REPORT_FILE_NAME
-    feature_data_dir = base_dir / "feature_repo" / "data"
-    feature_metadata_dir = base_dir / "feature_repo" / "metadata"
-    feature_table_file = feature_data_dir / FEATURE_TABLE_FILE_NAME
-    label_table_file = feature_data_dir / LABEL_TABLE_FILE_NAME
-    feature_schema_file = feature_metadata_dir / FEATURE_SCHEMA_FILE_NAME
-    feature_metadata_file = feature_metadata_dir / FEATURE_METADATA_FILE_NAME
+    artifact_dir = (output_dir or base_dir).resolve()
+    artifact_dir.mkdir(parents=True, exist_ok=True)
+    gold_name = (
+        OUTPUT_FILE_NAME
+        if feature_version == DEFAULT_FEATURE_VERSION
+        else (f"{Path(OUTPUT_FILE_NAME).stem}_{feature_version}.csv")
+    )
+    output_file = artifact_dir / gold_name
+    report_file = artifact_dir / f"data_quality_report_{feature_version}.md"
+    feature_data_dir = artifact_dir / "feature_repo" / "data"
+    feature_metadata_dir = artifact_dir / "feature_repo" / "metadata"
+    feature_table_file = feature_data_dir / f"fraud_features_{feature_version}.parquet"
+    label_table_file = feature_data_dir / f"fraud_labels_{feature_version}.parquet"
+    feature_schema_file = feature_metadata_dir / f"feature_schema_{feature_version}.json"
+    feature_metadata_file = feature_metadata_dir / f"feature_metadata_{feature_version}.json"
 
     print("Dataset file found:", raw_file.exists())
     print("Dataset path:", raw_file)
@@ -169,6 +181,12 @@ def build_paths(
         feature_schema_file,
         feature_metadata_file,
     )
+
+
+def validate_feature_version(feature_version: str) -> None:
+    """Keep versions safe for filenames and Feast object suffixes."""
+    if not re.fullmatch(r"[A-Za-z][A-Za-z0-9_]*", feature_version):
+        raise ValueError("Feature version must start with a letter and contain only letters, numbers, and underscores.")
 
 
 # %%
@@ -358,7 +376,11 @@ def save_json_atomically(payload: dict, output_file: Path) -> Path:
     return output_file
 
 
-def build_feature_schema(feature_table: pd.DataFrame, label_table: pd.DataFrame) -> dict:
+def build_feature_schema(
+    feature_table: pd.DataFrame,
+    label_table: pd.DataFrame,
+    feature_version: str = DEFAULT_FEATURE_VERSION,
+) -> dict:
     feast_types = {
         "transaction_id": "String",
         "event_timestamp": "UnixTimestamp",
@@ -387,14 +409,14 @@ def build_feature_schema(feature_table: pd.DataFrame, label_table: pd.DataFrame)
         ]
 
     return {
-        "feature_version": FEATURE_VERSION,
+        "feature_version": feature_version,
         "entity": {
             "name": "transaction",
             "join_key": "transaction_id",
         },
         "event_timestamp": "event_timestamp",
         "feature_view": "fraud_transaction_features",
-        "feature_service": f"fraud_model_features_{FEATURE_VERSION}",
+        "feature_service": f"fraud_model_features_{feature_version}",
         "feature_table": table_schema(feature_table),
         "label_table": table_schema(label_table),
         "target_registered_as_feature": False,
@@ -409,6 +431,7 @@ def save_feature_store_handoff(
     feature_schema_file: Path,
     feature_metadata_file: Path,
     cleaning_stats: dict[str, int],
+    feature_version: str = DEFAULT_FEATURE_VERSION,
 ) -> list[Path]:
     """Create the versioned, leakage-safe offline-store handoff for Feast."""
     if df_clean_table["transaction_id"].duplicated().any():
@@ -435,16 +458,17 @@ def save_feature_store_handoff(
     save_parquet_atomically(feature_table, feature_table_file)
     save_parquet_atomically(label_table, label_table_file)
 
-    schema_payload = build_feature_schema(feature_table, label_table)
+    validate_feature_version(feature_version)
+    schema_payload = build_feature_schema(feature_table, label_table, feature_version)
     save_json_atomically(schema_payload, feature_schema_file)
 
     pipeline_source = Path(__file__).resolve()
     metadata_payload = {
-        "feature_version": FEATURE_VERSION,
+        "feature_version": feature_version,
         "generated_at_utc": datetime.now(timezone.utc).isoformat(),
         "feature_store": "feast_local_file_offline_store",
         "feature_view": "fraud_transaction_features",
-        "feature_service": f"fraud_model_features_{FEATURE_VERSION}",
+        "feature_service": f"fraud_model_features_{feature_version}",
         "entity": "transaction",
         "entity_join_key": "transaction_id",
         "event_timestamp": "event_timestamp",
@@ -521,6 +545,7 @@ def save_quality_report(
     report_file: Path,
     cleaning_stats: dict[str, int],
     quality_profile: dict[str, pd.DataFrame | int],
+    output_file_name: str = OUTPUT_FILE_NAME,
 ) -> Path:
     missing_summary = quality_profile["missing_summary"]
     missing_summary = missing_summary.loc[missing_summary["missing_count"] > 0]
@@ -558,7 +583,7 @@ def save_quality_report(
 - Columns after cleaning: {df_clean_table.shape[1]}
 - Fraud count after cleaning: {int(df_clean_table["is_fraud"].sum())}
 - Fraud rate after cleaning: {df_clean_table["is_fraud"].mean():.6f}
-- Final table: `{OUTPUT_FILE_NAME}`
+- Final table: `{output_file_name}`
 
 ## Missing Values Before Cleaning
 
@@ -607,6 +632,7 @@ The following steps are postponed to the ML pipeline:
 - threshold tuning
 """
 
+    report_file.parent.mkdir(parents=True, exist_ok=True)
     with open(report_file, "w", encoding="utf-8") as f:
         f.write(report)
 
@@ -625,7 +651,28 @@ def verify_outputs(df_clean_table: pd.DataFrame, output_files: list[Path]) -> No
 
 # %%
 # This cell runs the full preprocessing pipeline in the correct order.
-def main() -> None:
+def prepare_dataframes(
+    raw_file: Path,
+) -> tuple[pd.DataFrame, pd.DataFrame, dict[str, int], dict[str, pd.DataFrame | int]]:
+    """Load one raw batch and apply the reusable, non-ML preparation steps."""
+    read_sample(raw_file)
+    raw_df = load_dataset(raw_file)
+    validate_schema(raw_df)
+
+    prepared_df = standardise_columns(raw_df)
+    quality_profile = profile_dataset(prepared_df)
+    df_clean, cleaning_stats = apply_safe_cleaning(prepared_df)
+    df_clean, cleaning_stats = parse_event_timestamp(df_clean, cleaning_stats)
+    df_clean_table = select_clean_columns(df_clean)
+    return raw_df, df_clean_table, cleaning_stats, quality_profile
+
+
+def run_pipeline(
+    *,
+    input_file: Path | None = None,
+    output_dir: Path | None = None,
+    feature_version: str = DEFAULT_FEATURE_VERSION,
+) -> dict[str, object]:
     (
         raw_file,
         output_file,
@@ -634,18 +681,12 @@ def main() -> None:
         label_table_file,
         feature_schema_file,
         feature_metadata_file,
-    ) = build_paths()
-    read_sample(raw_file)
-
-    df = load_dataset(raw_file)
-    df = standardise_columns(df)
-    validate_schema(df)
-    quality_profile = profile_dataset(df)
-
-    df_clean, cleaning_stats = apply_safe_cleaning(df)
-    df_clean, cleaning_stats = parse_event_timestamp(df_clean, cleaning_stats)
-
-    df_clean_table = select_clean_columns(df_clean)
+    ) = build_paths(
+        raw_file=input_file,
+        output_dir=output_dir,
+        feature_version=feature_version,
+    )
+    _, df_clean_table, cleaning_stats, quality_profile = prepare_dataframes(raw_file)
 
     quality_report_file = save_quality_report(
         df_clean_table,
@@ -653,6 +694,7 @@ def main() -> None:
         report_file,
         cleaning_stats,
         quality_profile,
+        output_file.name,
     )
     gold_table_file = save_gold_table(df_clean_table, output_file)
     feature_handoff_files = save_feature_store_handoff(
@@ -663,11 +705,61 @@ def main() -> None:
         feature_schema_file,
         feature_metadata_file,
         cleaning_stats,
+        feature_version,
     )
     verify_outputs(
         df_clean_table,
         [gold_table_file, quality_report_file, *feature_handoff_files],
     )
+    return {
+        "status": "success",
+        "feature_version": feature_version,
+        "input_file": str(raw_file.resolve()),
+        "row_count": int(len(df_clean_table)),
+        "fraud_count": int(df_clean_table["is_fraud"].sum()),
+        "fraud_rate": float(df_clean_table["is_fraud"].mean()),
+        "outputs": [str(path.resolve()) for path in [gold_table_file, quality_report_file, *feature_handoff_files]],
+    }
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Validate and prepare a fraud-data batch.")
+    parser.add_argument(
+        "--input",
+        type=Path,
+        default=None,
+        help=f"Raw CSV to process. Defaults to {DATASET_FILE_NAME} in the project directory.",
+    )
+    parser.add_argument(
+        "--output-dir",
+        type=Path,
+        default=None,
+        help="Artifact root. Defaults to the Code snippets directory for the canonical v1 workflow.",
+    )
+    parser.add_argument(
+        "--feature-version",
+        default=DEFAULT_FEATURE_VERSION,
+        help="Safe version suffix used by the feature, label, schema, and metadata artifacts.",
+    )
+    parser.add_argument(
+        "--summary-json",
+        type=Path,
+        default=None,
+        help="Optional path for a compact machine-readable run summary.",
+    )
+    return parser.parse_args()
+
+
+def main() -> None:
+    args = parse_args()
+    summary = run_pipeline(
+        input_file=args.input,
+        output_dir=args.output_dir,
+        feature_version=args.feature_version,
+    )
+    if args.summary_json is not None:
+        save_json_atomically(summary, args.summary_json.resolve())
+        print("Saved run summary:", args.summary_json.resolve())
 
 
 # %%
@@ -687,6 +779,9 @@ REQUIRED_PIPELINE_NAMES = [
     "save_feature_store_handoff",
     "save_quality_report",
     "verify_outputs",
+    "prepare_dataframes",
+    "run_pipeline",
+    "parse_args",
     "main",
 ]
 
