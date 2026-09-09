@@ -1,6 +1,6 @@
 # Shared utilities for the fraud-model experiments
 
-The module <code>fraud_modeling_utils.py</code> contains the experiment rules used by the baseline model-comparison script and intended for reuse by later advanced experiments. Centralising these rules prevents small implementation differences—such as a changed split, metric definition, or logging convention—from making two model runs appear comparable when they are not.
+The module <code>fraud_modeling_utils.py</code> contains the experiment rules used by the baseline model-comparison script and reused by later model-optimisation experiments. Centralising these rules prevents small implementation differences—such as a changed split, metric definition, or logging convention—from making two model runs appear comparable when they are not.
 
 The file uses <code># %%</code> markers so that its sections can be inspected interactively in a compatible editor, but it remains an ordinary importable Python module.
 
@@ -39,7 +39,7 @@ The returned <code>RunResult</code> object gives the calling script the run ID, 
 The responsibilities are intentionally divided:
 
 - <code>04_baseline_model_comparison_with_mlflow.py</code> defines the non-skill, linear, and fixed nonlinear baseline configurations together with model-specific preprocessing.
-- Later advanced-modeling scripts should add engineered features, resampling, tuning, or additional estimator libraries without changing the shared evaluation contract.
+- Later model-optimisation scripts should add resampling, tuning, or one selected estimator library without changing the shared evaluation contract.
 - <code>fraud_modeling_utils.py</code> makes sure both scripts load, split, evaluate, and log data in the same way.
 
 As a result, changing a model configuration does not silently change the evaluation protocol around it. Any later feature-engineering script should reuse this utility layer so that its results remain comparable with the frozen original-feature benchmark.

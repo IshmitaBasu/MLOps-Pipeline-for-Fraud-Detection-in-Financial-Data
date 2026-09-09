@@ -6,7 +6,7 @@
 
 This folder contains the current data-analysis and preparation work for my Master's thesis on building an end-to-end MLOps pipeline for financial fraud detection.
 
-The project focuses on two things at the same time: detecting fraudulent transactions and showing how the machine-learning workflow can be made reproducible, traceable, and maintainable. Data preparation, the versioned local Feast handoff, automated batch-data triggering, the full-data Feast-backed baseline comparison, and the controlled feature-engineering experiment are complete. The current milestone is to review the feature decision, define operational acceptance criteria, and begin controlled advanced-model experiments.
+The project focuses on two things at the same time: detecting fraudulent transactions and showing how the machine-learning workflow can be made reproducible, traceable, and maintainable. Data preparation, the versioned local Feast handoff, automated batch-data triggering, the full-data Feast-backed baseline comparison, and the controlled feature-engineering experiment are complete. The current milestone is model optimisation and operational evaluation using the frozen feature decision.
 
 ## Current Workflow
 
@@ -117,10 +117,15 @@ Code snippets/
 |-- 04_baseline_model_comparison_with_mlflow.py  # Fixed original-feature baseline comparison with MLflow
 |-- 05_feature_engineering_with_mlflow.py      # Controlled feature-group comparison with fixed Random Forest
 |-- fraud_modeling_utils.py                    # Shared splitting, evaluation, plotting, and tracking logic
+|-- model_optimization_utils.py                # Model, imbalance, threshold, and cost helpers
+|-- 06_model_optimization_and_operational_evaluation_with_mlflow.py  # Validation-only optimisation runner
+|-- requirements.txt                          # Pinned Python dependencies, including LightGBM
 |-- Markdown files/
 |   |-- 05_feature_engineering_experiment_plan.md       # Pre-run question, controls, and decision rules
 |   |-- 05_feature_engineering_implementation_guide.md  # Script behavior and execution instructions
-|   `-- 05_feature_engineering_results.md               # Full-data findings and current feature decision
+|   |-- 05_feature_engineering_results.md               # Full-data findings and current feature decision
+|   |-- 06_model_optimization_and_operational_evaluation_plan.md  # Models, imbalance, cost, and acceptance plan
+|   `-- 06_model_optimization_and_operational_evaluation_results.md  # Commands, results, and interpretation
 |-- tests/
 |   |-- test_feature_store_handoff.py          # Feast handoff round-trip integration test
 |   |-- test_automated_data_pipeline.py        # Trigger, duplicate, failure, and separation tests
@@ -137,6 +142,8 @@ Code snippets/
 | What was planned for the feature experiment, and why? | `Markdown files/05_feature_engineering_experiment_plan.md` |
 | How does the feature script work, and how do I run it? | `Markdown files/05_feature_engineering_implementation_guide.md` |
 | What values were obtained, and which features should be kept? | `Markdown files/05_feature_engineering_results.md` |
+| What is the current plan for model optimisation, imbalance handling, thresholds, and acceptance? | `Markdown files/06_model_optimization_and_operational_evaluation_plan.md` |
+| What has been run in stage 06, what values were obtained, and what do they mean? | `Markdown files/06_model_optimization_and_operational_evaluation_results.md` |
 | What is the frozen original-feature benchmark? | `Markdown files/original_feature_benchmark_v1.md` |
 | What are the detailed baseline model results? | `Markdown files/baseline_model_development_results_v1.md` |
 | How do preprocessing, Feast, and automated ingestion work? | `Markdown files/02_data_pipeline_preprocessing.md`, `feature_store_handoff.md`, and `automated_data_pipeline.md` |
@@ -160,6 +167,10 @@ This keeps the workflow clean: EDA can suggest feature ideas, but the value of t
 - The missingness indicator changed validation Average Precision by only 0.05% and remains a dataset-bias sensitivity result.
 - No engineered group provided convincing test evidence for replacing `original_v1`.
 - Numeric variables have weak direct linear correlation with the target; the baseline comparison therefore includes fixed nonlinear configurations alongside the linear reference.
+- LightGBM led the 50,000-row smoke comparison, but that advantage disappeared on the full validation period.
+- Random Forest remains the full-data metric winner at 0.0439598 validation Average Precision. Histogram Gradient Boosting is only 0.27% lower and trained about 15.7 times faster.
+- At a 10% validation alert capacity, Random Forest captured about 12.30% of fraud cases. Its maximum-F1 threshold still flagged about 82% of transactions.
+- The full-data imbalance comparison selected 5:1 training-only undersampling at 0.0442268 validation Average Precision, a 0.61% improvement over class weighting. The improvement remains below the provisional 5% target.
 
 ## Running the Current Work
 
@@ -218,6 +229,14 @@ Reproduce the full five-million-row feature experiment only when a new full-data
 .\masters_thesis\Scripts\python.exe ".\Code snippets\05_feature_engineering_with_mlflow.py"
 ```
 
+Run a validation-only technical smoke check of the model-optimisation controls with:
+
+```powershell
+.\masters_thesis\Scripts\python.exe ".\Code snippets\06_model_optimization_and_operational_evaluation_with_mlflow.py" --sample-rows 50000 --skip-data-hash
+```
+
+After installing the pinned LightGBM dependency, add `lightgbm` with `--models`. The runner records validation threshold and cost tables but does not evaluate the held-out test split.
+
 Run the Feast handoff integration test with:
 
 ```powershell
@@ -235,7 +254,7 @@ Open the local MLflow interface on Windows with one worker:
 - Add the specified MLflow images to the baseline comparison document and complete its final human review.
 - Review and approve the documented feature decision; retain `original_v1` unless further evidence justifies a replacement.
 - Define model-acceptance criteria and transaction-value cost assumptions.
-- Begin controlled resampling, advanced-model, and tuning experiments using the frozen data split and feature decision.
+- Define and implement a limited Random Forest tuning search using 5:1 training-only undersampling; keep selection validation-only.
 - Register the approved preprocessing/model pipeline and threshold in MLflow with a champion alias.
 - Implement FastAPI prediction serving and persist versioned prediction logs.
 - Build batch data-quality, drift, prediction, performance, and expected-cost monitoring.
@@ -247,7 +266,7 @@ Open the local MLflow interface on Windows with one worker:
 
 ## Status
 
-Data understanding, minimal preparation, incremental raw/clean batch ingestion, the full Feast handoff, Feast historical retrieval, the canonical baseline comparison, and the controlled feature experiment are complete. Data arrival triggers only validation and database ingestion; it does not trigger training or modify the frozen Feast `v1` baseline. `temporal_v2` won the validation-only feature comparison, but its test result did not confirm the improvement, so `original_v1` remains the stable reference. No model has been formally accepted or registered as champion. Resampling, systematic tuning, additional boosting libraries, serving, prediction logging, monitoring, the Streamlit dashboard, and Docker deployment remain to be implemented.
+Data understanding, minimal preparation, incremental raw/clean batch ingestion, the full Feast handoff, Feast historical retrieval, the canonical baseline comparison, the controlled feature experiment, the stage-06 model-family comparison, and the imbalance-strategy comparison are complete. Data arrival triggers only validation and database ingestion; it does not trigger training or modify the frozen Feast `v1` baseline. `temporal_v2` won the validation-only feature comparison, but its test result did not confirm the improvement, so `original_v1` remains the stable reference. LightGBM did not improve the full-data model-family result. Random Forest with 5:1 training-only undersampling is the current tuning candidate after a 0.61% validation Average Precision improvement over class weighting. No model has been formally accepted or registered as champion. Systematic tuning, serving, prediction logging, monitoring, the Streamlit dashboard, and Docker deployment remain to be implemented.
 
 The three UML diagrams in `Architecture_Diagram.drawio` describe the final target thesis prototype. They include both implemented components and the remaining serving and monitoring components listed above.
 

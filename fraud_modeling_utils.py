@@ -243,6 +243,7 @@ def environment_metadata() -> dict[str, Any]:
         "numpy",
         "pandas",
         "scikit-learn",
+        "lightgbm",
         "scipy",
         "matplotlib",
         "cloudpickle",

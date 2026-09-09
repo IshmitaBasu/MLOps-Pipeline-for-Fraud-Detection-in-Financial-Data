@@ -1,8 +1,8 @@
 # 04 – Comparing baseline fraud models with MLflow
 
-The baseline comparison in <code>04_baseline_model_comparison_with_mlflow.py</code> establishes the original-feature benchmark before advanced model development begins. It compares a non-skill reference, a linear baseline, and fixed nonlinear baseline configurations while keeping the feature set, chronological split, metrics, and tracking rules unchanged. Only the model family and its documented preprocessing differ.
+The baseline comparison in <code>04_baseline_model_comparison_with_mlflow.py</code> establishes the original-feature benchmark before model optimisation and operational evaluation begin. It compares a non-skill reference, a linear baseline, and fixed nonlinear baseline configurations while keeping the feature set, chronological split, metrics, and tracking rules unchanged. Only the model family and its documented preprocessing differ.
 
-This controlled design is important. If a new model and new features were introduced together, an improvement could not be attributed confidently to either one. Random Forest and Histogram Gradient Boosting are baseline comparison models here: they use fixed configurations and the original cleaned predictors. The later advanced stage is reserved for engineered features, resampling experiments, systematic hyperparameter tuning, and additional libraries such as XGBoost, LightGBM, or CatBoost.
+This controlled design is important. If a new model and new features were introduced together, an improvement could not be attributed confidently to either one. Random Forest and Histogram Gradient Boosting are baseline comparison models here: they use fixed configurations and the original cleaned predictors. The later optimisation stage is reserved for resampling experiments, systematic hyperparameter tuning, operational threshold analysis, and one selected additional boosting library.
 
 ## Models included in the baseline comparison
 
@@ -88,4 +88,4 @@ Optional checks are selected by name:
 .\masters_thesis\Scripts\python.exe ".\Code snippets\04_baseline_model_comparison_with_mlflow.py" --models knn_neighbors_31 --knn-training-rows 50000 --knn-evaluation-rows 25000
 ~~~
 
-The default Feast-backed experiment is <code>financial-fraud-feast-original-feature-baseline-comparison</code>. Log amount, timestamp-derived fields, resampling strategies, systematic tuning, and additional boosting libraries remain outside this comparison. They belong in the later advanced-modeling stage, which will reuse the selected baseline configuration and the same chronological evaluation protocol.
+The default Feast-backed experiment is <code>financial-fraud-feast-original-feature-baseline-comparison</code>. Log amount, timestamp-derived fields, resampling strategies, systematic tuning, and additional boosting libraries remain outside this comparison. Resampling, tuning, and the selected additional booster belong in the later model-optimisation stage, which will reuse the selected baseline configuration and the same chronological evaluation protocol.
