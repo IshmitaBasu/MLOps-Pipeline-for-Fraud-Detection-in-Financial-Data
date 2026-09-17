@@ -449,7 +449,12 @@ def log_common_metadata(
     if feature_metadata:
         feature_record.update(feature_metadata)
     elif feature_columns == FEATURE_COLUMNS:
-        feature_record["postponed_feature_experiments"] = [
+        feature_record["feature_set_name"] = "original_v1"
+        feature_record["feature_decision"] = (
+            "Retained after the controlled feature experiment did not provide "
+            "enough evidence for replacement."
+        )
+        feature_record["evaluated_but_not_retained_feature_groups"] = [
             "amount_log1p",
             "timestamp_hour_weekday_month",
             "time_since_last_transaction_missing_indicator",

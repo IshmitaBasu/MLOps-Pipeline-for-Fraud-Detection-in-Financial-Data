@@ -56,6 +56,15 @@ class ModelOptimizationConfiguration:
 
 
 @dataclass(frozen=True)
+class RandomForestTuningConfiguration:
+    """One predeclared Random Forest configuration for the limited search."""
+
+    name: str
+    description: str
+    parameters: Mapping[str, Any]
+
+
+@dataclass(frozen=True)
 class CostScenario:
     """Relative cost assumptions for threshold sensitivity analysis."""
 
@@ -132,6 +141,101 @@ def model_optimization_configurations() -> dict[str, ModelOptimizationConfigurat
             },
         ),
     }
+
+
+def random_forest_tuning_configurations() -> dict[str, RandomForestTuningConfiguration]:
+    """Return the fixed nine-run search used after selecting 5:1 undersampling.
+
+    The list is deliberately small and deterministic. Seven candidates change
+    one parameter from the current reference, and one final candidate checks a
+    more flexible combination. This is not an exhaustive Cartesian grid.
+    """
+
+    shared = {
+        "n_estimators": 100,
+        "max_depth": 12,
+        "min_samples_leaf": 100,
+        "max_features": "sqrt",
+    }
+
+    def configuration(
+        name: str,
+        description: str,
+        **overrides: Any,
+    ) -> RandomForestTuningConfiguration:
+        parameters = {**shared, **overrides}
+        return RandomForestTuningConfiguration(name, description, parameters)
+
+    return {
+        "rf_reference": configuration(
+            "rf_reference",
+            "Current 5:1 undersampling reference; confirms the previous result.",
+        ),
+        "rf_trees_200": configuration(
+            "rf_trees_200",
+            "Tests whether 200 trees make the ranking more stable.",
+            n_estimators=200,
+        ),
+        "rf_trees_300": configuration(
+            "rf_trees_300",
+            "Tests whether 300 trees improve ranking beyond 200 trees.",
+            n_estimators=300,
+        ),
+        "rf_depth_8": configuration(
+            "rf_depth_8",
+            "Tests a shallower forest with stronger structural regularisation.",
+            max_depth=8,
+        ),
+        "rf_depth_16": configuration(
+            "rf_depth_16",
+            "Tests whether deeper trees capture useful interactions.",
+            max_depth=16,
+        ),
+        "rf_leaf_50": configuration(
+            "rf_leaf_50",
+            "Tests smaller leaves that can represent more local patterns.",
+            min_samples_leaf=50,
+        ),
+        "rf_leaf_250": configuration(
+            "rf_leaf_250",
+            "Tests larger leaves as a stronger regularisation setting.",
+            min_samples_leaf=250,
+        ),
+        "rf_features_half": configuration(
+            "rf_features_half",
+            "Tests half of the transformed predictors at each split.",
+            max_features=0.5,
+        ),
+        "rf_combined_flexible": configuration(
+            "rf_combined_flexible",
+            "Checks one predeclared interaction of more trees, depth, smaller leaves, and more split features.",
+            n_estimators=200,
+            max_depth=16,
+            min_samples_leaf=50,
+            max_features=0.5,
+        ),
+    }
+
+
+def build_random_forest_tuning_pipeline(
+    configuration: RandomForestTuningConfiguration,
+    *,
+    random_state: int = DEFAULT_RANDOM_STATE,
+) -> Pipeline:
+    """Build one unweighted Random Forest candidate for 5:1 training data."""
+
+    base = model_optimization_configurations()["random_forest_depth_12"]
+    candidate = ModelOptimizationConfiguration(
+        name=base.name,
+        model_family=base.model_family,
+        preprocessing=base.preprocessing,
+        parameters=dict(configuration.parameters),
+    )
+    return build_candidate_pipeline(
+        candidate,
+        random_state=random_state,
+        use_class_weight=False,
+    )
 
 
 def one_hot_preprocessing() -> ColumnTransformer:

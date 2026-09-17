@@ -2,6 +2,8 @@
 
 This document describes the work planned after the baseline and feature-engineering experiments. The next stage has a clear order: reproduce the strongest controls, compare one additional model, study class imbalance, and only then tune the strongest option. The results will be written separately after the experiments have been completed.
 
+> **Execution status, 17 September 2026:** The screening, imbalance, smoke, and full-data tuning runs described in this predeclared plan are complete. The plan is retained as the record of what was decided before the results were known. The observed values and current research-candidate decision are recorded in `06_model_optimization_and_operational_evaluation_results.md`.
+
 ## Starting point
 
 The data preparation, Feast handoff, baseline comparison, and first feature experiment are complete. Random Forest is currently the strongest original-feature baseline, although its performance is still too weak for practical use.
@@ -94,19 +96,25 @@ Ordinary SMOTE will not be applied blindly after one-hot encoding. The dataset c
 
 ### 4. Tune only the selected approach
 
-Only the selected model family and imbalance strategy will be tuned. This avoids an unnecessarily large search across every possible combination.
+The full-data comparisons selected Random Forest with 5:1 training-only undersampling as the tuning candidate. No other model family, feature set, or imbalance strategy will be tuned. Class weighting will not be added on top of the undersampled training data.
 
-Depending on the model, the search may include:
+The search is a fixed list of nine configurations rather than a full Cartesian grid. This keeps the experiment reproducible and computationally reasonable while checking the main parameter directions and one predeclared interaction.
 
-- learning rate;
-- number of trees or boosting iterations;
-- tree depth or number of leaves;
-- minimum leaf size;
-- row and feature subsampling;
-- regularisation; and
-- class weight or positive-class scale.
+| Configuration | Trees | Maximum depth | Minimum leaf size | Features per split | Purpose |
+| --- | ---: | ---: | ---: | --- | --- |
+| `rf_reference` | 100 | 12 | 100 | `sqrt` | Reproduce the selected 5:1 reference. |
+| `rf_trees_200` | 200 | 12 | 100 | `sqrt` | Test whether more trees stabilise ranking. |
+| `rf_trees_300` | 300 | 12 | 100 | `sqrt` | Check whether a further increase helps. |
+| `rf_depth_8` | 100 | 8 | 100 | `sqrt` | Test stronger structural regularisation. |
+| `rf_depth_16` | 100 | 16 | 100 | `sqrt` | Test whether deeper interactions help. |
+| `rf_leaf_50` | 100 | 12 | 50 | `sqrt` | Allow more local patterns. |
+| `rf_leaf_250` | 100 | 12 | 250 | `sqrt` | Test stronger leaf-size regularisation. |
+| `rf_features_half` | 100 | 12 | 100 | `0.5` | Consider half of the transformed predictors per split. |
+| `rf_combined_flexible` | 200 | 16 | 50 | `0.5` | Check one more-flexible parameter interaction. |
 
-The exact ranges will be documented before a full search begins. Tuning will start with a limited random search or a development sample. Only the strongest configurations will be trained on all five million rows.
+Every configuration uses random state 42. Tuning begins with a reproducible 50,000-row smoke run to verify execution only. The same nine predeclared configurations will then be evaluated using the complete training and validation periods. The search will not be expanded or changed after seeing the smoke scores.
+
+The full-data winner will be selected using validation Average Precision. It will be compared with the current 5:1 reference of 0.04422677 and the provisional acceptance value of 0.04615781, which is 5% above the original Random Forest validation reference. Runtime and fixed-capacity behavior will be reported, but the ranking metric will not be changed after the runs.
 
 ### 5. Choose a useful operating threshold
 
@@ -208,11 +216,11 @@ Each full experiment should record the data and Feast hashes, feature list, spli
 
 A separate fitted model does not need to be stored for every screening run. The final frozen candidate should contain the complete model artifact and serving signature.
 
-## Tests and files to add
+## Tests and implementation files
 
-The implementation should add tests for pipeline construction, deterministic configurations, train-only resampling, unchanged validation and test distributions, cost calculations, alert-rate thresholds, validation-only selection, and final-test access.
+The implementation includes tests for pipeline construction, deterministic configurations, train-only resampling, unchanged validation and test distributions, validation-only selection, tuning restrictions, and the absence of a test-data path through the tuning runner. Threshold and cost calculations are also exercised by the utility checks.
 
-The planned files are:
+The stage uses:
 
 ```text
 model_optimization_utils.py
@@ -223,15 +231,15 @@ Markdown files/06_model_optimization_and_operational_evaluation_results.md
 tests/test_model_optimization_and_operational_evaluation.py
 ```
 
-Shared threshold and cost functions can be added to `fraud_modeling_utils.py` because they will also be useful later for serving and monitoring.
+The implementation guide explains the two runner modes and commands. The results document remains the chronological evidence record. Shared splitting, evaluation, and MLflow behavior remains in `fraud_modeling_utils.py`; model construction, resampling, threshold, cost, and tuning configuration logic remains in `model_optimization_utils.py`.
 
 ## What is not part of this step
 
 This experiment will not introduce more engineered features, create a Feast `v2` handoff, register a champion before evaluation, build the FastAPI service, implement monitoring, or package the system with Docker. Those tasks come after the model decision.
 
-## Points to review before the full runs
+## Pre-run review points retained from the plan
 
-Before expensive full-data experiments begin, the following points should be confirmed with the supervisor where possible:
+The following points should be confirmed with the supervisor where possible before a candidate is accepted for final evaluation:
 
 1. Is a 5% relative improvement in validation Average Precision a reasonable practical target for this thesis?
 2. Are alert-rate scenarios of 1%, 5%, and 10% suitable for the prototype evaluation?
@@ -239,4 +247,4 @@ Before expensive full-data experiments begin, the following points should be con
 4. Is LightGBM acceptable as the selected external boosting model?
 5. Is a documented exclusion of SMOTE acceptable if it is unsuitable for the mixed, five-million-row dataset?
 
-The experiment structure and smoke tests can be implemented while these questions are being reviewed. No final full-data selection or acceptance claim should be made until the evaluation rules are agreed.
+The smoke and full-data validation tuning runs have now been completed without using the held-out test period. These questions still require review before an acceptance claim, operating-threshold decision, or final test evaluation is made.
