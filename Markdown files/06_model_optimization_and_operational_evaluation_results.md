@@ -4,7 +4,7 @@ This is the running record for stage 06. It records what was executed, the value
 
 ## Current position
 
-The model-family, imbalance-strategy, and fixed nine-configuration tuning experiments are complete. Random Forest remained the model-family winner, and 5:1 training-only undersampling produced the strongest imbalance result. The full tuning search selected `rf_leaf_50` by validation Average Precision, but its 0.15% relative improvement over the tuning reference was small and it did not improve the fixed-capacity results. It is therefore a validation-selected research candidate rather than an accepted champion. The held-out test period has not been evaluated in stage 06.
+The model-family, imbalance-strategy, and fixed nine-configuration tuning experiments are complete. Random Forest remained the model-family winner, and 5:1 training-only undersampling produced the strongest imbalance result. The full tuning search selected `rf_leaf_50` by validation Average Precision, but its 0.15% relative improvement over the tuning reference was small and it did not improve the fixed-capacity results. Supervisor review concluded that the predictive quality is insufficient, so the configuration remains historical research evidence and will not proceed to final evaluation or registration. The held-out test period was not evaluated in stage 06.
 
 | Item | Current status |
 | --- | --- |
@@ -18,8 +18,8 @@ The model-family, imbalance-strategy, and fixed nine-configuration tuning experi
 | Test split | Not evaluated in stage 06 |
 | Selected tuning candidate | `rf_leaf_50`: Random Forest with 5:1 undersampling, 100 trees, depth 12, and minimum leaf size 50 |
 | Tuning status | Smoke and full-data validation runs complete; selection made only from full validation evidence |
-| Current decision | Research candidate pending supervisor review of the acceptance rule and operating threshold |
-| Next controlled evaluation | One held-out test evaluation only if the candidate and threshold are frozen and approved |
+| Current decision | `rf_leaf_50` will not proceed; predictive modelling is reopened in stage 07 |
+| Next controlled evaluation | New validation-only experiments under a frozen stratified random-split protocol |
 
 ## Fixed experiment conditions
 
@@ -552,9 +552,25 @@ The smoke ranking did not generalise to the complete validation period. `rf_comb
 
 The full search selects `rf_leaf_50` according to the predeclared validation Average Precision rule. The result is technically reproducible and feasible on the local environment, but its improvement is very small and it does not improve the fixed-capacity or maximum-F1 workload results. It therefore remains a **validation-selected research candidate**, not an accepted prototype champion.
 
-No operating threshold has been frozen. Under the current provisional rules, a final held-out test evaluation should not be run until the 5% improvement requirement and the operational threshold expectations have been reviewed with the supervisor. If a one-time final evaluation of the strongest research candidate is approved despite missing the provisional target, that exception should be recorded before the test period is opened.
+No operating threshold was frozen. Supervisor review did not approve a final evaluation of this candidate and instead requested further experiments with the data, features, imbalance treatment, and model families. Stage 06 therefore ends without opening its held-out test period.
 
 The test period remains unevaluated, and no model has been registered or promoted.
+
+## Supervisor review and transition to stage 07
+
+Supervisor feedback in September 2026 confirmed that the reported precision, recall, and ranking quality are too weak for the model's intended purpose. The review requested a clearer explanation of the poor separation, further modelling rather than final testing, and an explicit investigation of oversampling.
+
+The review also produced the following changes for the next stage:
+
+- use a reproducible stratified random split for the revised experiments while retaining the chronological findings as separate robustness evidence;
+- check whether account, counterparty, device, IP, and transaction-history fields contain useful patterns before investing in a full behavioural feature pipeline;
+- if behavioural features are useful, configure the feature pipeline and Feast interfaces so that consistent computed values can support both training and inference;
+- replace the fixed false-negative cost ratios with transaction-value-based reporting and clearly labelled sensitivity assumptions;
+- add XGBoost and CatBoost as bounded model-family candidates;
+- examine a scalable linear SVM and treat KNN as a sampled feasibility study because of full-data scaling concerns; and
+- continue designing model-independent registry, serving, logging, monitoring, dashboard, and Docker interfaces in parallel.
+
+These decisions are predeclared in `07_predictive_quality_improvement_plan.md`. Stage 07 must establish its own reference results because its random split is not directly comparable with the chronological scores in this document.
 
 ## MLflow location
 

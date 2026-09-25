@@ -2,7 +2,7 @@
 
 This document describes the work planned after the baseline and feature-engineering experiments. The next stage has a clear order: reproduce the strongest controls, compare one additional model, study class imbalance, and only then tune the strongest option. The results will be written separately after the experiments have been completed.
 
-> **Execution status, 17 September 2026:** The screening, imbalance, smoke, and full-data tuning runs described in this predeclared plan are complete. The plan is retained as the record of what was decided before the results were known. The observed values and current research-candidate decision are recorded in `06_model_optimization_and_operational_evaluation_results.md`.
+> **Execution status, updated 25 September 2026:** The screening, imbalance, smoke, and full-data tuning runs described in this predeclared plan are complete. Supervisor review concluded that the resulting predictive quality is insufficient, so no stage-06 candidate will proceed to final testing or registration. This plan is retained as the record of what was decided before the results were known. The observed values and review outcome are recorded in `06_model_optimization_and_operational_evaluation_results.md`; revised work is predeclared in `07_predictive_quality_improvement_plan.md`.
 
 ## Starting point
 

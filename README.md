@@ -6,7 +6,7 @@
 
 This folder contains the current data-analysis and preparation work for my Master's thesis on building an end-to-end MLOps pipeline for financial fraud detection.
 
-The project focuses on two things at the same time: detecting fraudulent transactions and showing how the machine-learning workflow can be made reproducible, traceable, and maintainable. Data preparation, the versioned local Feast handoff, automated batch-data triggering, the full-data Feast-backed baseline comparison, controlled feature engineering, and validation-only model optimisation are complete. The current milestone is to review the selected research candidate and operating-threshold assumptions before final evaluation, registration, serving, and monitoring.
+The project focuses on two things at the same time: detecting fraudulent transactions and showing how the machine-learning workflow can be made reproducible, traceable, and maintainable. Data preparation, the versioned local Feast handoff, automated batch-data triggering, the full-data Feast-backed baseline comparison, controlled feature engineering, and the first validation-only model-optimisation stage are complete. Following supervisor review of the weak predictive results, the current milestone is a revised predictive-quality stage covering a stratified random split, behavioural-feature feasibility, oversampling, and additional model families. The held-out test remains closed.
 
 ## Current Workflow
 
@@ -20,9 +20,10 @@ The workflow follows this process-model order:
 6. Controlled original-feature baseline model comparison with experiment tracking - complete
 7. Controlled feature-engineering comparison with a fixed Random Forest - complete
 8. Advanced model development, including resampling, tuning, and an additional boosting library - complete
-9. Candidate review, final evaluation, and MLflow model registration - pending supervisor guidance
-10. FastAPI serving and versioned prediction logging - planned
-11. Batch monitoring, rule-based flags, and Streamlit visualization - planned
+9. Supervisor-directed predictive-quality revision - planned
+10. Candidate review, final evaluation, and MLflow model registration - planned
+11. FastAPI serving and versioned prediction logging - planned
+12. Batch monitoring, rule-based flags, and Streamlit visualization - planned
 
 This order is intentional. The initial EDA happens before cleaning so that the cleaning decisions are based on evidence from the raw data. The baseline stage compares fixed non-skill, linear, and nonlinear configurations using only the original predictors. The feature experiment then keeps the selected Random Forest fixed and changes only the input features. Model-family screening, imbalance handling, and tuning were subsequently kept as separate controlled experiments.
 
@@ -126,7 +127,8 @@ Code snippets/
 |   |-- 05_feature_engineering_results.md               # Full-data findings and current feature decision
 |   |-- 06_model_optimization_and_operational_evaluation_plan.md  # Models, tuning search, and acceptance plan
 |   |-- 06_model_optimization_and_operational_evaluation_implementation_guide.md  # Modes and commands
-|   `-- 06_model_optimization_and_operational_evaluation_results.md  # Commands, results, and interpretation
+|   |-- 06_model_optimization_and_operational_evaluation_results.md  # Commands, results, and interpretation
+|   `-- 07_predictive_quality_improvement_plan.md  # Revised split, features, resampling, and model plan
 |-- tests/
 |   |-- test_feature_store_handoff.py          # Feast handoff round-trip integration test
 |   |-- test_automated_data_pipeline.py        # Trigger, duplicate, failure, and separation tests
@@ -147,6 +149,7 @@ Code snippets/
 | What is the current plan for model optimisation, imbalance handling, thresholds, and acceptance? | `Markdown files/06_model_optimization_and_operational_evaluation_plan.md` |
 | How do the stage-06 screening and tuning modes work, and what command should be run? | `Markdown files/06_model_optimization_and_operational_evaluation_implementation_guide.md` |
 | What has been run in stage 06, what values were obtained, and what do they mean? | `Markdown files/06_model_optimization_and_operational_evaluation_results.md` |
+| What is planned after supervisor review of the weak predictive results? | `Markdown files/07_predictive_quality_improvement_plan.md` |
 | What is the frozen original-feature benchmark? | `Markdown files/original_feature_benchmark_v1.md` |
 | What are the detailed baseline model results? | `Markdown files/baseline_model_development_results_v1.md` |
 | How do preprocessing, Feast, and automated ingestion work? | `Markdown files/02_data_pipeline_preprocessing.md`, `feature_store_handoff.md`, and `automated_data_pipeline.md` |
@@ -264,9 +267,12 @@ Open the local MLflow interface on Windows with one worker:
 ## Next Steps
 
 - Add the specified MLflow images to the baseline comparison document and complete its final human review.
-- Review the full-data tuning decision with the supervisor and confirm the acceptance rule, alert-capacity assumption, and cost-sensitivity assumptions before any final test evaluation.
-- If approved, freeze `rf_leaf_50`, 5:1 training-only undersampling, and one validation-derived operating threshold for a single held-out test evaluation.
-- Register the evaluated preprocessing/model pipeline and threshold in MLflow with a `candidate` alias; assign `champion` only after an explicit acceptance decision.
+- Freeze and record the new stratified random split without evaluating its test partition.
+- Run training-only entity-repetition and behavioural-feature feasibility diagnostics.
+- Compare random oversampling and SMOTENC with the revised class-weighted and undersampled references.
+- Compare Random Forest, XGBoost, CatBoost, a scalable linear SVM, and a sampled KNN feasibility run under the revised protocol.
+- Replace fixed false-negative ratios with fraud-count and transaction-value evaluation.
+- Present the revised validation evidence before any final test evaluation or model registration.
 - Implement FastAPI prediction serving and persist versioned prediction logs.
 - Build batch data-quality, drift, prediction, performance, and expected-cost monitoring.
 - Add rule-based investigation/retraining recommendations without fully automated retraining.
@@ -277,7 +283,7 @@ Open the local MLflow interface on Windows with one worker:
 
 ## Status
 
-Data understanding, minimal preparation, incremental raw/clean batch ingestion, the full Feast handoff, Feast historical retrieval, the canonical baseline comparison, the controlled feature experiment, the stage-06 model-family comparison, imbalance-strategy comparison, and full-data Random Forest tuning are complete. Data arrival triggers only validation and database ingestion; it does not trigger training or modify the frozen Feast `v1` baseline. `temporal_v2` won the validation-only feature comparison, but its test result did not confirm the improvement, so `original_v1` remains the stable reference. LightGBM did not improve the full-data model-family result. The tuning search selected Random Forest with 5:1 undersampling and a minimum leaf size of 50, but its validation Average Precision improvement was only 0.15% over the tuning reference and it did not improve the fixed-capacity results. It is therefore a research candidate, not an accepted or registered champion. The acceptance rule and operating threshold must be reviewed before any final held-out test evaluation. Serving, prediction logging, monitoring, the Streamlit dashboard, and Docker deployment remain to be completed.
+Data understanding, minimal preparation, incremental raw/clean batch ingestion, the full Feast handoff, Feast historical retrieval, the canonical baseline comparison, the controlled feature experiment, and the first model-optimisation stage are complete. Data arrival triggers only validation and database ingestion; it does not trigger training or modify the frozen Feast `v1` baseline. The earlier tuning search selected `rf_leaf_50`, but its improvement was too small and its operational results were too weak for it to proceed. It is retained only as historical research evidence. Supervisor feedback has reopened modelling with a stratified random split, a feasibility gate for behavioural features, oversampling, transaction-value evaluation, and additional model families. No model is accepted or registered, and the revised test partition must remain closed. Model-independent serving and monitoring design can proceed in parallel.
 
 The three UML diagrams in `Architecture_Diagram.drawio` describe the final target thesis prototype. They include both implemented components and the remaining serving and monitoring components listed above.
 
