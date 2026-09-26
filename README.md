@@ -20,7 +20,7 @@ The workflow follows this process-model order:
 6. Controlled original-feature baseline model comparison with experiment tracking - complete
 7. Controlled feature-engineering comparison with a fixed Random Forest - complete
 8. Advanced model development, including resampling, tuning, and an additional boosting library - complete
-9. Supervisor-directed predictive-quality revision - planned
+9. Supervisor-directed predictive-quality revision - in progress
 10. Candidate review, final evaluation, and MLflow model registration - planned
 11. FastAPI serving and versioned prediction logging - planned
 12. Batch monitoring, rule-based flags, and Streamlit visualization - planned
@@ -55,6 +55,7 @@ This order is intentional. The initial EDA happens before cleaning so that the c
 - Found that `temporal_v2` improved validation Average Precision by 0.87% but performed 0.38% worse than the original benchmark on the test period, so it was not accepted as a canonical replacement for `original_v1`.
 - Restored the feature experiment, added deterministic calculation tests, and separated its plan, implementation guide, and completed results into clearly named documents.
 - Updated the three-page UML architecture file with component, activity, and local deployment views for the final target prototype.
+- Implemented the first Stage 07 diagnostic with a frozen stratified random split, training-only behavioural checks, past-only history calculations, MLflow artifacts, and automated leakage safeguards.
 
 ## Current Data Artifacts
 
@@ -120,6 +121,8 @@ Code snippets/
 |-- fraud_modeling_utils.py                    # Shared splitting, evaluation, plotting, and tracking logic
 |-- model_optimization_utils.py                # Model, imbalance, threshold, and cost helpers
 |-- 06_model_optimization_and_operational_evaluation_with_mlflow.py  # Validation-only optimisation runner
+|-- predictive_quality_utils.py                # Random-split and past-only diagnostic safeguards
+|-- 07_predictive_quality_improvement_with_mlflow.py  # Training-only feature-feasibility runner
 |-- requirements.txt                          # Pinned Python dependencies, including LightGBM
 |-- Markdown files/
 |   |-- 05_feature_engineering_experiment_plan.md       # Pre-run question, controls, and decision rules
@@ -128,12 +131,15 @@ Code snippets/
 |   |-- 06_model_optimization_and_operational_evaluation_plan.md  # Models, tuning search, and acceptance plan
 |   |-- 06_model_optimization_and_operational_evaluation_implementation_guide.md  # Modes and commands
 |   |-- 06_model_optimization_and_operational_evaluation_results.md  # Commands, results, and interpretation
-|   `-- 07_predictive_quality_improvement_plan.md  # Revised split, features, resampling, and model plan
+|   |-- 07_predictive_quality_improvement_plan.md  # Revised split, features, resampling, and model plan
+|   |-- 07_predictive_quality_improvement_implementation_guide.md  # Diagnostic behavior and commands
+|   `-- 07_predictive_quality_improvement_results.md  # Run log, values, and decisions
 |-- tests/
 |   |-- test_feature_store_handoff.py          # Feast handoff round-trip integration test
 |   |-- test_automated_data_pipeline.py        # Trigger, duplicate, failure, and separation tests
 |   |-- test_feature_engineering.py            # Feature-calculation and validation safeguards
-|   `-- test_model_optimization_and_operational_evaluation.py  # Tuning and test-isolation safeguards
+|   |-- test_model_optimization_and_operational_evaluation.py  # Tuning and test-isolation safeguards
+|   `-- test_predictive_quality_improvement.py  # Random-split and history safeguards
 |-- Architecture_Diagram.drawio                # Component, activity, and deployment diagrams
 |-- sample_financial_fraud_detection_dataset.csv
 |-- README.md
@@ -150,6 +156,8 @@ Code snippets/
 | How do the stage-06 screening and tuning modes work, and what command should be run? | `Markdown files/06_model_optimization_and_operational_evaluation_implementation_guide.md` |
 | What has been run in stage 06, what values were obtained, and what do they mean? | `Markdown files/06_model_optimization_and_operational_evaluation_results.md` |
 | What is planned after supervisor review of the weak predictive results? | `Markdown files/07_predictive_quality_improvement_plan.md` |
+| How does the first Stage 07 diagnostic work, and how should it be run? | `Markdown files/07_predictive_quality_improvement_implementation_guide.md` |
+| Which Stage 07 runs have been completed, what values were obtained, and what follows? | `Markdown files/07_predictive_quality_improvement_results.md` |
 | What is the frozen original-feature benchmark? | `Markdown files/original_feature_benchmark_v1.md` |
 | What are the detailed baseline model results? | `Markdown files/baseline_model_development_results_v1.md` |
 | How do preprocessing, Feast, and automated ingestion work? | `Markdown files/02_data_pipeline_preprocessing.md`, `feature_store_handoff.md`, and `automated_data_pipeline.md` |
@@ -178,6 +186,7 @@ This keeps the workflow clean: EDA can suggest feature ideas, but the value of t
 - At a 10% validation alert capacity, Random Forest captured about 12.30% of fraud cases. Its maximum-F1 threshold still flagged about 82% of transactions.
 - The full-data imbalance comparison selected 5:1 training-only undersampling at 0.0442268 validation Average Precision, a 0.61% improvement over class weighting. The improvement remains below the provisional 5% target.
 - The nine-configuration tuning smoke test completed successfully. `rf_combined_flexible` had the highest smoke Average Precision, but no configuration was selected from smoke data.
+- The full Stage 07 training-only diagnostic found that sender-location history was the only examined entity to pass the predefined feasibility gate: 20.844% history coverage and a 15.638% relative difference between new and returning fraud rates. This is feature-engineering evidence, not validation performance; the test split remained closed.
 
 ## Running the Current Work
 
@@ -251,6 +260,14 @@ Run the fixed nine-configuration Random Forest tuning smoke test with:
 ```
 
 This tuning run always uses 5:1 training-only undersampling. Smoke scores confirm implementation only and must not be used as thesis findings.
+
+Run the first Stage 07 training-only feature-feasibility smoke check with:
+
+```powershell
+.\masters_thesis\Scripts\python.exe ".\Code snippets\07_predictive_quality_improvement_with_mlflow.py" --mode diagnostics --sample-rows 50000 --skip-data-hash
+```
+
+This run checks whether the raw account, receiver, device, IP, and location keys contain enough repeated behaviour to justify historical feature engineering. It creates the revised random split but does not inspect validation or test features. Record the output in `Markdown files/07_predictive_quality_improvement_results.md`; smoke values are technical checks only.
 
 Run the Feast handoff integration test with:
 
