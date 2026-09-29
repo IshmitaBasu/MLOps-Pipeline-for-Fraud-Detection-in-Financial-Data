@@ -20,10 +20,11 @@ The workflow follows this process-model order:
 6. Controlled original-feature baseline model comparison with experiment tracking - complete
 7. Controlled feature-engineering comparison with a fixed Random Forest - complete
 8. Advanced model development, including resampling, tuning, and an additional boosting library - complete
-9. Supervisor-directed predictive-quality revision - in progress
-10. Candidate review, final evaluation, and MLflow model registration - planned
-11. FastAPI serving and versioned prediction logging - planned
-12. Batch monitoring, rule-based flags, and Streamlit visualization - planned
+9. Supervisor-directed predictive-quality revision and behavioural diagnostics - complete
+10. Controlled sender-location history feature experiment - complete
+11. Candidate review, final evaluation, and MLflow model registration - planned
+12. FastAPI serving and versioned prediction logging - planned
+13. Batch monitoring, rule-based flags, and Streamlit visualization - planned
 
 This order is intentional. The initial EDA happens before cleaning so that the cleaning decisions are based on evidence from the raw data. The baseline stage compares fixed non-skill, linear, and nonlinear configurations using only the original predictors. The feature experiment then keeps the selected Random Forest fixed and changes only the input features. Model-family screening, imbalance handling, and tuning were subsequently kept as separate controlled experiments.
 
@@ -56,6 +57,9 @@ This order is intentional. The initial EDA happens before cleaning so that the c
 - Restored the feature experiment, added deterministic calculation tests, and separated its plan, implementation guide, and completed results into clearly named documents.
 - Updated the three-page UML architecture file with component, activity, and local deployment views for the final target prototype.
 - Implemented the first Stage 07 diagnostic with a frozen stratified random split, training-only behavioural checks, past-only history calculations, MLflow artifacts, and automated leakage safeguards.
+- Completed the full Stage 07 diagnostic and selected sender-location history for one controlled validation experiment.
+- Implemented the Stage 08 control-versus-candidate runner with three point-in-time history features, fixed-workload fraud-value evaluation, and test-isolation safeguards.
+- Completed the full Stage 08 comparison. `sender_location_history_v1` improved validation Average Precision by 5.69% and improved fraud-count and fraud-value recall at equal alert volumes, so it is retained for later validation experiments.
 
 ## Current Data Artifacts
 
@@ -123,6 +127,8 @@ Code snippets/
 |-- 06_model_optimization_and_operational_evaluation_with_mlflow.py  # Validation-only optimisation runner
 |-- predictive_quality_utils.py                # Random-split and past-only diagnostic safeguards
 |-- 07_predictive_quality_improvement_with_mlflow.py  # Training-only feature-feasibility runner
+|-- sender_location_history_utils.py           # Point-in-time history and workload helpers
+|-- 08_sender_location_history_feature_experiment_with_mlflow.py  # Controlled feature comparison
 |-- requirements.txt                          # Pinned Python dependencies, including LightGBM
 |-- Markdown files/
 |   |-- 05_feature_engineering_experiment_plan.md       # Pre-run question, controls, and decision rules
@@ -133,13 +139,17 @@ Code snippets/
 |   |-- 06_model_optimization_and_operational_evaluation_results.md  # Commands, results, and interpretation
 |   |-- 07_predictive_quality_improvement_plan.md  # Revised split, features, resampling, and model plan
 |   |-- 07_predictive_quality_improvement_implementation_guide.md  # Diagnostic behavior and commands
-|   `-- 07_predictive_quality_improvement_results.md  # Run log, values, and decisions
+|   |-- 07_predictive_quality_improvement_results.md  # Run log, values, and decisions
+|   |-- 08_sender_location_history_feature_experiment_plan.md  # Frozen comparison and decision rules
+|   |-- 08_sender_location_history_feature_experiment_implementation_guide.md  # Behavior and commands
+|   `-- 08_sender_location_history_feature_experiment_results.md  # Smoke and full result log
 |-- tests/
 |   |-- test_feature_store_handoff.py          # Feast handoff round-trip integration test
 |   |-- test_automated_data_pipeline.py        # Trigger, duplicate, failure, and separation tests
 |   |-- test_feature_engineering.py            # Feature-calculation and validation safeguards
 |   |-- test_model_optimization_and_operational_evaluation.py  # Tuning and test-isolation safeguards
-|   `-- test_predictive_quality_improvement.py  # Random-split and history safeguards
+|   |-- test_predictive_quality_improvement.py  # Random-split and history safeguards
+|   `-- test_sender_location_history_feature_experiment.py  # Point-in-time and workload safeguards
 |-- Architecture_Diagram.drawio                # Component, activity, and deployment diagrams
 |-- sample_financial_fraud_detection_dataset.csv
 |-- README.md
@@ -158,6 +168,9 @@ Code snippets/
 | What is planned after supervisor review of the weak predictive results? | `Markdown files/07_predictive_quality_improvement_plan.md` |
 | How does the first Stage 07 diagnostic work, and how should it be run? | `Markdown files/07_predictive_quality_improvement_implementation_guide.md` |
 | Which Stage 07 runs have been completed, what values were obtained, and what follows? | `Markdown files/07_predictive_quality_improvement_results.md` |
+| What is the controlled sender-location feature question and decision rule? | `Markdown files/08_sender_location_history_feature_experiment_plan.md` |
+| How is the Stage 08 feature comparison implemented and run? | `Markdown files/08_sender_location_history_feature_experiment_implementation_guide.md` |
+| What Stage 08 values were obtained and did the feature group progress? | `Markdown files/08_sender_location_history_feature_experiment_results.md` |
 | What is the frozen original-feature benchmark? | `Markdown files/original_feature_benchmark_v1.md` |
 | What are the detailed baseline model results? | `Markdown files/baseline_model_development_results_v1.md` |
 | How do preprocessing, Feast, and automated ingestion work? | `Markdown files/02_data_pipeline_preprocessing.md`, `feature_store_handoff.md`, and `automated_data_pipeline.md` |
@@ -187,6 +200,7 @@ This keeps the workflow clean: EDA can suggest feature ideas, but the value of t
 - The full-data imbalance comparison selected 5:1 training-only undersampling at 0.0442268 validation Average Precision, a 0.61% improvement over class weighting. The improvement remains below the provisional 5% target.
 - The nine-configuration tuning smoke test completed successfully. `rf_combined_flexible` had the highest smoke Average Precision, but no configuration was selected from smoke data.
 - The full Stage 07 training-only diagnostic found that sender-location history was the only examined entity to pass the predefined feasibility gate: 20.844% history coverage and a 15.638% relative difference between new and returning fraud rates. This is feature-engineering evidence, not validation performance; the test split remained closed.
+- The full controlled Stage 08 comparison increased validation Average Precision from 0.043949 to 0.046448, a 5.69% relative improvement. At a 5% alert volume, the history candidate captured 1,790 fraud cases instead of 1,669 and increased fraud-value recall from 2.90% to 6.80%. The candidate proceeds to later validation experiments; it is not a final or test-approved model.
 
 ## Running the Current Work
 
@@ -269,6 +283,14 @@ Run the first Stage 07 training-only feature-feasibility smoke check with:
 
 This run checks whether the raw account, receiver, device, IP, and location keys contain enough repeated behaviour to justify historical feature engineering. It creates the revised random split but does not inspect validation or test features. Record the output in `Markdown files/07_predictive_quality_improvement_results.md`; smoke values are technical checks only.
 
+Run the controlled Stage 08 sender-location feature smoke comparison with:
+
+```powershell
+.\masters_thesis\Scripts\python.exe ".\Code snippets\08_sender_location_history_feature_experiment_with_mlflow.py" --mode comparison --sample-rows 50000 --skip-data-hash
+```
+
+This fits the same Random Forest with `original_v1` and with the three added history features. It compares validation ranking, equal-workload fraud capture, and fraud-value capture without materialising or evaluating the test partition. Smoke scores are technical checks only.
+
 Run the Feast handoff integration test with:
 
 ```powershell
@@ -284,8 +306,7 @@ Open the local MLflow interface on Windows with one worker:
 ## Next Steps
 
 - Add the specified MLflow images to the baseline comparison document and complete its final human review.
-- Freeze and record the new stratified random split without evaluating its test partition.
-- Run training-only entity-repetition and behavioural-feature feasibility diagnostics.
+- Define and implement the versioned Feast contract for the retained sender-location history features, including offline/online consistency checks.
 - Compare random oversampling and SMOTENC with the revised class-weighted and undersampled references.
 - Compare Random Forest, XGBoost, CatBoost, a scalable linear SVM, and a sampled KNN feasibility run under the revised protocol.
 - Replace fixed false-negative ratios with fraud-count and transaction-value evaluation.
