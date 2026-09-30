@@ -159,4 +159,4 @@ The experiment establishes a reproducible original-feature benchmark. Nonlinear 
 
 Absolute performance is still modest, and the F1-selected Random Forest threshold creates an impractical false-positive burden. The model is therefore retained only as a benchmark. It has not received a champion alias and should not be registered for deployment.
 
-Before closing this checkpoint, the calculations and wording should be reviewed against the MLflow interface, a commit identifier should be recorded once the source is committed, and any supervisor feedback should be added with its review date.
+Before closing this checkpoint, the calculations and wording should be reviewed against the MLflow interface, a commit identifier should be recorded once the source is committed, and any resulting review decisions should be added with their dates.

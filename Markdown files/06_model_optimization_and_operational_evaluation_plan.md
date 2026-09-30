@@ -2,7 +2,7 @@
 
 This document describes the work planned after the baseline and feature-engineering experiments. The next stage has a clear order: reproduce the strongest controls, compare one additional model, study class imbalance, and only then tune the strongest option. The results will be written separately after the experiments have been completed.
 
-> **Execution status, updated 25 September 2026:** The screening, imbalance, smoke, and full-data tuning runs described in this predeclared plan are complete. Supervisor review concluded that the resulting predictive quality is insufficient, so no stage-06 candidate will proceed to final testing or registration. This plan is retained as the record of what was decided before the results were known. The observed values and review outcome are recorded in `06_model_optimization_and_operational_evaluation_results.md`; revised work is predeclared in `07_predictive_quality_improvement_plan.md`.
+> **Execution status, updated 25 September 2026:** The screening, imbalance, smoke, and full-data tuning runs described in this predeclared plan are complete. The results review concluded that the resulting predictive quality is insufficient, so no stage-06 candidate will proceed to final testing or registration. This plan is retained as the record of what was decided before the results were known. The observed values and review outcome are recorded in `06_model_optimization_and_operational_evaluation_results.md`; revised work is predeclared in `07_predictive_quality_improvement_plan.md`.
 
 ## Starting point
 
@@ -62,7 +62,7 @@ The comparison will remain small enough that every model has a clear reason for 
 | Histogram Gradient Boosting | It was almost as strong as Random Forest in the baseline experiment and trained much faster. |
 | LightGBM | The selected external boosting model provides a stronger tabular candidate with support for weighted learning. |
 
-LightGBM has been selected for implementation because training speed and memory use matter for five million rows. Version `4.7.0` is pinned in `requirements.txt` so that the experiment can be reproduced. The choice should still be supported by the literature review and, if possible, confirmed with the supervisor. XGBoost has not been added as a second dependency.
+LightGBM has been selected for implementation because training speed and memory use matter for five million rows. Version `4.7.0` is pinned in `requirements.txt` so that the experiment can be reproduced. The choice should still be supported by the literature review and recorded in the methodological review. XGBoost has not been added as a second dependency.
 
 The Dummy Classifier and Logistic SGD results are already available from the baseline stage. They will remain in the written comparison, but reruns are only needed if the data interface changes.
 
@@ -168,14 +168,14 @@ expected cost = (false positives x false-positive cost)
               + (false negatives x false-negative cost)
 ```
 
-These values are sensitivity assumptions, not real bank costs. If the supervisor suggests more suitable values, they will be updated before the final evaluation.
+These values are sensitivity assumptions, not real bank costs. They may be updated before final evaluation if stronger domain evidence supports more suitable values.
 
 ## Conditions for a model to be considered good enough
 
 A clear rule is needed before looking at the final test result. The following conditions are provisional:
 
 1. The model must beat the original validation Average Precision of 0.0439598.
-2. The difference should be large enough to matter. A provisional target of at least 5% relative improvement will be used, subject to confirmation with the supervisor.
+2. The difference should be large enough to matter. A provisional target of at least 5% relative improvement will be used, subject to documented review before final evaluation.
 3. The model must offer a documented threshold for one of the 1%, 5%, or 10% alert-capacity scenarios.
 4. Its alert or cost behaviour must be clearly better than the current 82.1% alert-rate result.
 5. Training and inference must be feasible on the local thesis environment.
@@ -237,9 +237,9 @@ The implementation guide explains the two runner modes and commands. The results
 
 This experiment will not introduce more engineered features, create a Feast `v2` handoff, register a champion before evaluation, build the FastAPI service, implement monitoring, or package the system with Docker. Those tasks come after the model decision.
 
-## Pre-run review points retained from the plan
+## Pre-run acceptance questions retained from the plan
 
-The following points should be confirmed with the supervisor where possible before a candidate is accepted for final evaluation:
+The following points require a documented decision before a candidate is accepted for final evaluation:
 
 1. Is a 5% relative improvement in validation Average Precision a reasonable practical target for this thesis?
 2. Are alert-rate scenarios of 1%, 5%, and 10% suitable for the prototype evaluation?

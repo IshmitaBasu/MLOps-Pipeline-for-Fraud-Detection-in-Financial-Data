@@ -267,6 +267,7 @@ def source_files(data_source: str) -> list[Path]:
     files = [
         Path(__file__).resolve(),
         PROJECT_DIR / "fraud_modeling_utils.py",
+        PROJECT_DIR / "project_io_utils.py",
         PROJECT_DIR / "Markdown files" / "05_feature_engineering_experiment_plan.md",
         PROJECT_DIR / "Markdown files" / "05_feature_engineering_implementation_guide.md",
     ]

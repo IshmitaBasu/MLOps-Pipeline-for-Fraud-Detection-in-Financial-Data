@@ -1,0 +1,45 @@
+{
+  "feature_version": "v2",
+  "feature_service": "fraud_behaviour_features_v2",
+  "feature_views": [
+    "sender_history_features_v2",
+    "sender_location_history_features_v2"
+  ],
+  "derived_feature_adapter": "derive_new_location_flag_v2",
+  "features": {
+    "sender_prior_transaction_count": "strictly earlier frozen-training transactions for the sender",
+    "sender_location_prior_transaction_count": "strictly earlier frozen-training transactions for the sender-location pair",
+    "is_new_location_for_returning_sender": "sender count > 0 and sender-location count == 0"
+  },
+  "state_snapshot_semantics": "Source snapshots store post-event counts one microsecond after each source timestamp, so a query at the transaction timestamp receives strictly earlier state.",
+  "missing_count_default": 0,
+  "target_registered_as_feature": false,
+  "target_used_in_feature_calculation": false,
+  "validation_events_update_history": false,
+  "test_events_used": false,
+  "frozen_split_sha256": "e8f58ca7f8c713df27f977c2661f296ea57a118678daebabd79bc4a39c3e9242",
+  "split_counts": {
+    "train": 3500000,
+    "validation": 750000,
+    "test": 750000
+  },
+  "artifacts": {
+    "raw_source": {
+      "name": "financial_fraud_detection_dataset.csv",
+      "size_bytes": 796050204,
+      "sha256": "f8186b81fa497741d1b224cc8d7968a694a0a4639237ad208b845273b746f338"
+    },
+    "sender_table": {
+      "name": "sender_history_features_v2.parquet",
+      "rows": 4392006,
+      "size_bytes": 40130616,
+      "sha256": "f830846c91532e303b87c19921fa9261889091bacca9c09cb4ca0c340cad3c8b"
+    },
+    "sender_location_table": {
+      "name": "sender_location_history_features_v2.parquet",
+      "rows": 6708923,
+      "size_bytes": 64980648,
+      "sha256": "30893ca87216718cad3bf1eccc2b9219070241f1f044e2b9924de2c92febbfb6"
+    }
+  }
+}

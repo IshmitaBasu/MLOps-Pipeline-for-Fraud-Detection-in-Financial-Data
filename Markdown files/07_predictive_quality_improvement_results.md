@@ -9,10 +9,11 @@ been run.
 
 ## Why this diagnostic comes first
 
-The supervisor asked whether the planned historical features show a noticeable
-relationship with fraud before substantial engineering work is invested. The
-diagnostic therefore measures repetition, prior-history coverage, new-versus-
-returning fraud rates, and sender amount deviation on training data only.
+The modelling review examined whether the planned historical features show a
+noticeable relationship with fraud before substantial engineering work is
+invested. The diagnostic therefore measures repetition, prior-history
+coverage, new-versus-returning fraud rates, and sender amount deviation on
+training data only.
 
 ## Implemented safeguards
 

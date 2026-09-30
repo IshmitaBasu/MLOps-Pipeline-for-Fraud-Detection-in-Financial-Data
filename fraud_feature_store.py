@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
-import hashlib
 import json
 from pathlib import Path
 from typing import Any
 
 import pandas as pd
+
+from project_io_utils import sha256_file
 
 FEATURE_VERSION = "v1"
 FEATURE_VIEW_NAME = "fraud_transaction_features"
@@ -30,14 +31,6 @@ MODEL_FEATURE_COLUMNS = [
 ]
 
 FEATURE_REFERENCES = [f"{FEATURE_VIEW_NAME}:{feature}" for feature in MODEL_FEATURE_COLUMNS]
-
-
-def sha256_file(path: Path, chunk_size: int = 8 * 1024 * 1024) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as file_handle:
-        while chunk := file_handle.read(chunk_size):
-            digest.update(chunk)
-    return digest.hexdigest()
 
 
 def handoff_paths(repo_path: Path) -> dict[str, Path]:

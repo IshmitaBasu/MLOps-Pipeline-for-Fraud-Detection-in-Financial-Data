@@ -193,6 +193,7 @@ def tracked_source_files(data_source: str) -> list[Path]:
         Path(__file__).resolve(),
         PROJECT_DIR / "model_optimization_utils.py",
         PROJECT_DIR / "fraud_modeling_utils.py",
+        PROJECT_DIR / "project_io_utils.py",
         PROJECT_DIR
         / "Markdown files"
         / "06_model_optimization_and_operational_evaluation_plan.md",

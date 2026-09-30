@@ -3,7 +3,6 @@
 # %% Imports
 from __future__ import annotations
 
-import hashlib
 import json
 import platform
 import sys
@@ -37,6 +36,8 @@ from sklearn.metrics import (
     roc_curve,
 )
 from sklearn.pipeline import Pipeline
+
+from project_io_utils import sha256_file
 
 # %% Project paths and feature schema
 PROJECT_DIR = Path(__file__).resolve().parent
@@ -175,14 +176,6 @@ def configure_mlflow(experiment_name: str) -> str:
 
     mlflow.set_experiment(experiment_name)
     return tracking_uri
-
-
-def sha256_file(path: Path, chunk_size: int = 8 * 1024 * 1024) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as file_handle:
-        while chunk := file_handle.read(chunk_size):
-            digest.update(chunk)
-    return digest.hexdigest()
 
 
 def dataset_metadata(data_path: Path, calculate_hash: bool = True) -> dict[str, Any]:

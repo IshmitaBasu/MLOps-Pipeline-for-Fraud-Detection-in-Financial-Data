@@ -4,7 +4,7 @@
 
 Stage 06 showed that the existing pipeline is reproducible, but it did not produce a model that is useful enough for fraud detection. The strongest tuning result, `rf_leaf_50`, reached a validation Average Precision of 0.044293 and only slightly improved the previous Random Forest reference. Its fraud ranking and fixed-workload results remained weak.
 
-Following supervisor feedback in September 2026, the modelling stage is reopened before any final test evaluation or model registration. This stage will investigate whether a different split protocol, better behavioural information, oversampling, or another model family can provide a meaningful improvement. At the same time, the model-independent parts of the serving and monitoring architecture can be designed.
+Following the September 2026 predictive-quality review, the modelling stage is reopened before any final test evaluation or model registration. This stage will investigate whether a different split protocol, better behavioural information, oversampling, or another model family can provide a meaningful improvement. At the same time, the model-independent parts of the serving and monitoring architecture can be designed.
 
 This document is the pre-run plan. Results must be recorded in a separate results document without rewriting the original decisions after scores are known.
 
@@ -63,7 +63,7 @@ A final test path will be implemented separately only after:
 3. one model configuration is frozen;
 4. one validation-derived operating rule is frozen;
 5. the validation evidence is documented; and
-6. the supervisor has reviewed the decision.
+6. the decision has undergone documented review.
 
 ## Experiment sequence
 

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import argparse
-import hashlib
 import importlib.util
 import sqlite3
 import sys
@@ -17,6 +16,11 @@ from typing import Any, Iterable
 import pandas as pd
 
 PROJECT_DIR = Path(__file__).resolve().parents[1]
+if str(PROJECT_DIR) not in sys.path:
+    sys.path.insert(0, str(PROJECT_DIR))
+
+from project_io_utils import sha256_file
+
 DATA_PIPELINE_SCRIPT = PROJECT_DIR / "02_data_pipeline_preprocessing.py"
 DEFAULT_DATA_ROOT = PROJECT_DIR / "data"
 DEFAULT_DATABASE_NAME = "fraud_pipeline.db"
@@ -65,14 +69,6 @@ def utc_now() -> datetime:
 
 def iso_utc(moment: datetime | None = None) -> str:
     return (moment or utc_now()).isoformat()
-
-
-def sha256_file(path: Path, chunk_size: int = 8 * 1024 * 1024) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as file_handle:
-        while chunk := file_handle.read(chunk_size):
-            digest.update(chunk)
-    return digest.hexdigest()
 
 
 def load_data_pipeline_module() -> ModuleType:

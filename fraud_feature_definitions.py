@@ -6,6 +6,8 @@ from pathlib import Path
 from feast import Entity, FeatureService, FeatureView, Field, FileSource, ValueType
 from feast.types import Float64, Int64, String
 
+from sender_location_feature_store import build_behaviour_feast_objects
+
 PROJECT_DIR = Path(__file__).resolve().parent
 FEATURE_VERSION = "v1"
 FEATURE_DATA_PATH = PROJECT_DIR / "feature_repo" / "data" / f"fraud_features_{FEATURE_VERSION}.parquet"
@@ -60,4 +62,31 @@ fraud_model_features_v1 = FeatureService(
     features=[fraud_transaction_features],
     description="Feature contract used by the baseline comparison and later fraud models.",
     tags={"feature_version": FEATURE_VERSION},
+)
+
+# Version 2 behavioural state is additive: the original v1 transaction contract
+# remains unchanged and usable by existing experiments.
+BEHAVIOUR_FEATURE_VERSION = "v2"
+SENDER_HISTORY_DATA_PATH = (
+    PROJECT_DIR
+    / "feature_repo"
+    / "data"
+    / f"sender_history_features_{BEHAVIOUR_FEATURE_VERSION}.parquet"
+)
+SENDER_LOCATION_HISTORY_DATA_PATH = (
+    PROJECT_DIR
+    / "feature_repo"
+    / "data"
+    / f"sender_location_history_features_{BEHAVIOUR_FEATURE_VERSION}.parquet"
+)
+
+(
+    sender,
+    sender_location,
+    sender_history_features_v2,
+    sender_location_history_features_v2,
+    fraud_behaviour_features_v2,
+) = build_behaviour_feast_objects(
+    SENDER_HISTORY_DATA_PATH,
+    SENDER_LOCATION_HISTORY_DATA_PATH,
 )

@@ -6,7 +6,7 @@
 
 This folder contains the current data-analysis and preparation work for my Master's thesis on building an end-to-end MLOps pipeline for financial fraud detection.
 
-The project focuses on two things at the same time: detecting fraudulent transactions and showing how the machine-learning workflow can be made reproducible, traceable, and maintainable. Data preparation, the versioned local Feast handoff, automated batch-data triggering, the full-data Feast-backed baseline comparison, controlled feature engineering, and the first validation-only model-optimisation stage are complete. Following supervisor review of the weak predictive results, the current milestone is a revised predictive-quality stage covering a stratified random split, behavioural-feature feasibility, oversampling, and additional model families. The held-out test remains closed.
+The project focuses on two things at the same time: detecting fraudulent transactions and showing how the machine-learning workflow can be made reproducible, traceable, and maintainable. Data preparation, the original local Feast handoff, automated batch-data triggering, the full-data Feast-backed baseline comparison, controlled feature engineering, and the first validation-only model-optimisation stage are complete. A predictive-quality review concluded that further modelling was required, after which the stratified random-split behavioural diagnostic, controlled sender-location experiment, versioned Feast behavioural contract, and full-data imbalance comparison were completed. The next modelling stage compares additional model families using the retained class-weight treatment while the held-out test remains closed.
 
 ## Current Workflow
 
@@ -20,11 +20,15 @@ The workflow follows this process-model order:
 6. Controlled original-feature baseline model comparison with experiment tracking - complete
 7. Controlled feature-engineering comparison with a fixed Random Forest - complete
 8. Advanced model development, including resampling, tuning, and an additional boosting library - complete
-9. Supervisor-directed predictive-quality revision and behavioural diagnostics - complete
+9. Predictive-quality revision and behavioural diagnostics - complete
 10. Controlled sender-location history feature experiment - complete
-11. Candidate review, final evaluation, and MLflow model registration - planned
-12. FastAPI serving and versioned prediction logging - planned
-13. Batch monitoring, rule-based flags, and Streamlit visualization - planned
+11. Versioned sender-location Feast contract and local online consistency - complete
+12. Controlled oversampling comparison - complete; class weighting retained
+13. Additional model-family comparison - complete; LightGBM selected
+14. Limited LightGBM tuning and operating-rule selection - planned
+15. Candidate review, final evaluation, and MLflow model registration - planned
+16. FastAPI serving and versioned prediction logging - planned
+17. Batch monitoring, rule-based flags, and Streamlit visualization - planned
 
 This order is intentional. The initial EDA happens before cleaning so that the cleaning decisions are based on evidence from the raw data. The baseline stage compares fixed non-skill, linear, and nonlinear configurations using only the original predictors. The feature experiment then keeps the selected Random Forest fixed and changes only the input features. Model-family screening, imbalance handling, and tuning were subsequently kept as separate controlled experiments.
 
@@ -60,6 +64,7 @@ This order is intentional. The initial EDA happens before cleaning so that the c
 - Completed the full Stage 07 diagnostic and selected sender-location history for one controlled validation experiment.
 - Implemented the Stage 08 control-versus-candidate runner with three point-in-time history features, fixed-workload fraud-value evaluation, and test-isolation safeguards.
 - Completed the full Stage 08 comparison. `sender_location_history_v1` improved validation Average Precision by 5.69% and improved fraud-count and fraud-value recall at equal alert volumes, so it is retained for later validation experiments.
+- Completed the additive `v2` Feast behavioural contract on all five million rows, with sender and sender-location entities, point-in-time state snapshots, a derived new-location flag, local SQLite materialization, and matching offline/online values for 50 checked entity rows.
 
 ## Current Data Artifacts
 
@@ -123,13 +128,20 @@ Code snippets/
 |-- 04_baseline_model_comparison_with_mlflow.py  # Fixed original-feature baseline comparison with MLflow
 |-- 05_feature_engineering_with_mlflow.py      # Controlled feature-group comparison with fixed Random Forest
 |-- fraud_modeling_utils.py                    # Shared splitting, evaluation, plotting, and tracking logic
+|-- project_io_utils.py                        # Shared model-artifact hashing and atomic writes
 |-- model_optimization_utils.py                # Model, imbalance, threshold, and cost helpers
 |-- 06_model_optimization_and_operational_evaluation_with_mlflow.py  # Validation-only optimisation runner
 |-- predictive_quality_utils.py                # Random-split and past-only diagnostic safeguards
 |-- 07_predictive_quality_improvement_with_mlflow.py  # Training-only feature-feasibility runner
 |-- sender_location_history_utils.py           # Point-in-time history and workload helpers
 |-- 08_sender_location_history_feature_experiment_with_mlflow.py  # Controlled feature comparison
-|-- requirements.txt                          # Pinned Python dependencies, including LightGBM
+|-- sender_location_feature_store.py           # Versioned Feast contract and consistency helpers
+|-- 09_sender_location_feature_store.py        # Build, materialization, and validation runner
+|-- oversampling_experiment_utils.py           # Train-only resampling and selection safeguards
+|-- 10_oversampling_experiment_with_mlflow.py  # Controlled imbalance-strategy comparison runner
+|-- model_family_comparison_utils.py            # Frozen Stage 11 configuration and selection rules
+|-- 11_model_family_comparison_with_mlflow.py   # Validation-only Stage 11 runner
+|-- requirements.txt                          # Pinned dependencies, including imbalance and boosting libraries
 |-- Markdown files/
 |   |-- 05_feature_engineering_experiment_plan.md       # Pre-run question, controls, and decision rules
 |   |-- 05_feature_engineering_implementation_guide.md  # Script behavior and execution instructions
@@ -142,14 +154,25 @@ Code snippets/
 |   |-- 07_predictive_quality_improvement_results.md  # Run log, values, and decisions
 |   |-- 08_sender_location_history_feature_experiment_plan.md  # Frozen comparison and decision rules
 |   |-- 08_sender_location_history_feature_experiment_implementation_guide.md  # Behavior and commands
-|   `-- 08_sender_location_history_feature_experiment_results.md  # Smoke and full result log
+|   |-- 08_sender_location_history_feature_experiment_results.md  # Smoke and full result log
+|   |-- 09_sender_location_feature_store_implementation_guide.md  # Contract and execution guide
+|   |-- 09_sender_location_feature_store_results.md  # Build and consistency evidence
+|   |-- 10_oversampling_experiment_plan.md  # Frozen imbalance-strategy comparison
+|   |-- 10_oversampling_experiment_implementation_guide.md  # Safeguards and commands
+|   |-- 10_oversampling_experiment_results.md  # Smoke and full comparison evidence
+|   |-- 11_model_family_comparison_plan.md  # Frozen full-data families and KNN feasibility rules
+|   |-- 11_model_family_comparison_implementation_guide.md  # Handoff and safeguards
+|   `-- 11_model_family_comparison_results.md  # Pre-run checks and later model evidence
 |-- tests/
 |   |-- test_feature_store_handoff.py          # Feast handoff round-trip integration test
 |   |-- test_automated_data_pipeline.py        # Trigger, duplicate, failure, and separation tests
 |   |-- test_feature_engineering.py            # Feature-calculation and validation safeguards
 |   |-- test_model_optimization_and_operational_evaluation.py  # Tuning and test-isolation safeguards
 |   |-- test_predictive_quality_improvement.py  # Random-split and history safeguards
-|   `-- test_sender_location_history_feature_experiment.py  # Point-in-time and workload safeguards
+|   |-- test_sender_location_history_feature_experiment.py  # Point-in-time and workload safeguards
+|   |-- test_sender_location_feature_store.py  # Offline/online consistency safeguards
+|   |-- test_oversampling_experiment.py        # Train-only resampling safeguards
+|   `-- test_model_family_comparison.py        # Stage 11 handoff and selection safeguards
 |-- Architecture_Diagram.drawio                # Component, activity, and deployment diagrams
 |-- sample_financial_fraud_detection_dataset.csv
 |-- README.md
@@ -165,12 +188,20 @@ Code snippets/
 | What is the current plan for model optimisation, imbalance handling, thresholds, and acceptance? | `Markdown files/06_model_optimization_and_operational_evaluation_plan.md` |
 | How do the stage-06 screening and tuning modes work, and what command should be run? | `Markdown files/06_model_optimization_and_operational_evaluation_implementation_guide.md` |
 | What has been run in stage 06, what values were obtained, and what do they mean? | `Markdown files/06_model_optimization_and_operational_evaluation_results.md` |
-| What is planned after supervisor review of the weak predictive results? | `Markdown files/07_predictive_quality_improvement_plan.md` |
+| What is planned after the review of the weak predictive results? | `Markdown files/07_predictive_quality_improvement_plan.md` |
 | How does the first Stage 07 diagnostic work, and how should it be run? | `Markdown files/07_predictive_quality_improvement_implementation_guide.md` |
 | Which Stage 07 runs have been completed, what values were obtained, and what follows? | `Markdown files/07_predictive_quality_improvement_results.md` |
 | What is the controlled sender-location feature question and decision rule? | `Markdown files/08_sender_location_history_feature_experiment_plan.md` |
 | How is the Stage 08 feature comparison implemented and run? | `Markdown files/08_sender_location_history_feature_experiment_implementation_guide.md` |
 | What Stage 08 values were obtained and did the feature group progress? | `Markdown files/08_sender_location_history_feature_experiment_results.md` |
+| How is the retained history represented and served consistently through Feast? | `Markdown files/09_sender_location_feature_store_implementation_guide.md` |
+| What Stage 09 materialization and consistency results were obtained? | `Markdown files/09_sender_location_feature_store_results.md` |
+| What imbalance strategies will Stage 10 compare, and how will one be selected? | `Markdown files/10_oversampling_experiment_plan.md` |
+| How is the Stage 10 smoke workflow implemented and run? | `Markdown files/10_oversampling_experiment_implementation_guide.md` |
+| What Stage 10 runs have completed and what were their results? | `Markdown files/10_oversampling_experiment_results.md` |
+| Why does Stage 11 repeat earlier models, which additional families will it compare, and how can one progress? | `Markdown files/11_model_family_comparison_plan.md` |
+| How is the Stage 11 comparison controlled and executed? | `Markdown files/11_model_family_comparison_implementation_guide.md` |
+| What Stage 11 checks and model runs have completed? | `Markdown files/11_model_family_comparison_results.md` |
 | What is the frozen original-feature benchmark? | `Markdown files/original_feature_benchmark_v1.md` |
 | What are the detailed baseline model results? | `Markdown files/baseline_model_development_results_v1.md` |
 | How do preprocessing, Feast, and automated ingestion work? | `Markdown files/02_data_pipeline_preprocessing.md`, `feature_store_handoff.md`, and `automated_data_pipeline.md` |
@@ -291,6 +322,15 @@ Run the controlled Stage 08 sender-location feature smoke comparison with:
 
 This fits the same Random Forest with `original_v1` and with the three added history features. It compares validation ranking, equal-workload fraud capture, and fraud-value capture without materialising or evaluating the test partition. Smoke scores are technical checks only.
 
+Run the isolated Stage 09 Feast smoke test with:
+
+```powershell
+.\masters_thesis\Scripts\python.exe ".\Code snippets\09_sender_location_feature_store.py" --mode smoke
+```
+
+This uses a temporary Feast registry and SQLite online store. It verifies
+historical/online consistency without changing the canonical feature artifacts.
+
 Run the Feast handoff integration test with:
 
 ```powershell
@@ -306,10 +346,8 @@ Open the local MLflow interface on Windows with one worker:
 ## Next Steps
 
 - Add the specified MLflow images to the baseline comparison document and complete its final human review.
-- Define and implement the versioned Feast contract for the retained sender-location history features, including offline/online consistency checks.
-- Compare random oversampling and SMOTENC with the revised class-weighted and undersampled references.
-- Compare Random Forest, XGBoost, CatBoost, a scalable linear SVM, and a sampled KNN feasibility run under the revised protocol.
-- Replace fixed false-negative ratios with fraud-count and transaction-value evaluation.
+- Run a small predeclared LightGBM tuning experiment using validation evidence only.
+- Freeze the final operating rule after tuning, including fraud-count and fraud-value capture.
 - Present the revised validation evidence before any final test evaluation or model registration.
 - Implement FastAPI prediction serving and persist versioned prediction logs.
 - Build batch data-quality, drift, prediction, performance, and expected-cost monitoring.
@@ -321,7 +359,7 @@ Open the local MLflow interface on Windows with one worker:
 
 ## Status
 
-Data understanding, minimal preparation, incremental raw/clean batch ingestion, the full Feast handoff, Feast historical retrieval, the canonical baseline comparison, the controlled feature experiment, and the first model-optimisation stage are complete. Data arrival triggers only validation and database ingestion; it does not trigger training or modify the frozen Feast `v1` baseline. The earlier tuning search selected `rf_leaf_50`, but its improvement was too small and its operational results were too weak for it to proceed. It is retained only as historical research evidence. Supervisor feedback has reopened modelling with a stratified random split, a feasibility gate for behavioural features, oversampling, transaction-value evaluation, and additional model families. No model is accepted or registered, and the revised test partition must remain closed. Model-independent serving and monitoring design can proceed in parallel.
+Data understanding, minimal preparation, incremental raw/clean batch ingestion, the full Feast handoff, Feast historical retrieval, the canonical baseline comparison, the controlled feature experiment, the full imbalance comparison, and the revised model-family comparison are complete. Data arrival triggers only validation and database ingestion; it does not trigger training or modify the frozen Feast `v1` baseline. The revised modelling protocol uses a stratified random split, retained behavioural features, transaction-value evaluation and class weighting selected from the full Stage 10 comparison. Stage 11 selected LightGBM for limited validation-only tuning. No model is accepted or registered, and the revised test partition remains closed. Model-independent serving and monitoring design can proceed in parallel.
 
 The three UML diagrams in `Architecture_Diagram.drawio` describe the final target thesis prototype. They include both implemented components and the remaining serving and monitoring components listed above.
 

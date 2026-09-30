@@ -1,4 +1,6 @@
 project: financial_fraud_detection
 registry: feature_repo/data/registry.db
 provider: local
-online_store: null
+online_store:
+  type: sqlite
+  path: feature_repo/data/online_store.db

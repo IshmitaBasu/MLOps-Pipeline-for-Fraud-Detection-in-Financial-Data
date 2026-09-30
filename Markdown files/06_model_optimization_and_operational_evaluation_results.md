@@ -4,7 +4,7 @@ This is the running record for stage 06. It records what was executed, the value
 
 ## Current position
 
-The model-family, imbalance-strategy, and fixed nine-configuration tuning experiments are complete. Random Forest remained the model-family winner, and 5:1 training-only undersampling produced the strongest imbalance result. The full tuning search selected `rf_leaf_50` by validation Average Precision, but its 0.15% relative improvement over the tuning reference was small and it did not improve the fixed-capacity results. Supervisor review concluded that the predictive quality is insufficient, so the configuration remains historical research evidence and will not proceed to final evaluation or registration. The held-out test period was not evaluated in stage 06.
+The model-family, imbalance-strategy, and fixed nine-configuration tuning experiments are complete. Random Forest remained the model-family winner, and 5:1 training-only undersampling produced the strongest imbalance result. The full tuning search selected `rf_leaf_50` by validation Average Precision, but its 0.15% relative improvement over the tuning reference was small and it did not improve the fixed-capacity results. The results review concluded that the predictive quality is insufficient, so the configuration remains historical research evidence and will not proceed to final evaluation or registration. The held-out test period was not evaluated in stage 06.
 
 | Item | Current status |
 | --- | --- |
@@ -552,13 +552,13 @@ The smoke ranking did not generalise to the complete validation period. `rf_comb
 
 The full search selects `rf_leaf_50` according to the predeclared validation Average Precision rule. The result is technically reproducible and feasible on the local environment, but its improvement is very small and it does not improve the fixed-capacity or maximum-F1 workload results. It therefore remains a **validation-selected research candidate**, not an accepted prototype champion.
 
-No operating threshold was frozen. Supervisor review did not approve a final evaluation of this candidate and instead requested further experiments with the data, features, imbalance treatment, and model families. Stage 06 therefore ends without opening its held-out test period.
+No operating threshold was frozen. The evidence did not support final evaluation of this candidate, and the review instead established further experiments with the data, features, imbalance treatment, and model families. Stage 06 therefore ends without opening its held-out test period.
 
 The test period remains unevaluated, and no model has been registered or promoted.
 
-## Supervisor review and transition to stage 07
+## Predictive-quality review and transition to stage 07
 
-Supervisor feedback in September 2026 confirmed that the reported precision, recall, and ranking quality are too weak for the model's intended purpose. The review requested a clearer explanation of the poor separation, further modelling rather than final testing, and an explicit investigation of oversampling.
+A September 2026 review concluded that the reported precision, recall, and ranking quality are too weak for the model's intended purpose. The review identified the need for a clearer explanation of the poor separation, further modelling rather than final testing, and an explicit investigation of oversampling.
 
 The review also produced the following changes for the next stage:
 

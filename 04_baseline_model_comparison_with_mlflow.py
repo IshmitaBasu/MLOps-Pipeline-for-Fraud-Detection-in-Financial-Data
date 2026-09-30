@@ -412,6 +412,7 @@ def main() -> None:
     source_files = [
         Path(__file__).resolve(),
         PROJECT_DIR / "fraud_modeling_utils.py",
+        PROJECT_DIR / "project_io_utils.py",
     ]
     if args.data_source == "feast":
         source_files.extend(

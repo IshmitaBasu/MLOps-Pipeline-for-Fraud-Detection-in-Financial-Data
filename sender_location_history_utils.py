@@ -3,13 +3,13 @@
 # %% Imports and constants
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Final, Sequence
 
 import numpy as np
 import pandas as pd
 
-from predictive_quality_utils import ID_COLUMN, TIME_COLUMN, TRAIN_CODE, VALIDATION_CODE
-
+from predictive_quality_utils import ID_COLUMN, TEST_CODE, TIME_COLUMN, TRAIN_CODE, VALIDATION_CODE
 
 SENDER_COLUMN: Final = "sender_account"
 LOCATION_COLUMN: Final = "location"
@@ -21,31 +21,97 @@ HISTORY_FEATURES: Final = [
 DEFAULT_ALERT_RATES: Final = (0.01, 0.05, 0.10)
 
 
+# %% Shared development-frame construction
+def restore_raw_source_order(modeling_table: pd.DataFrame, raw_data_path: Path) -> pd.DataFrame:
+    """Restore the verified numeric transaction-ID order used by the frozen split."""
+
+    if not raw_data_path.exists():
+        raise FileNotFoundError(f"Raw dataset not found: {raw_data_path}")
+    if modeling_table[ID_COLUMN].duplicated().any():
+        raise ValueError("The modeling table contains duplicate transaction IDs.")
+    identifiers = modeling_table[ID_COLUMN].astype("string")
+    if not identifiers.str.fullmatch(r"T\d+").all():
+        raise ValueError("Canonical transaction IDs must use the T<number> format.")
+    numeric_order = identifiers.str.slice(1).astype("int64")
+    if numeric_order.duplicated().any():
+        raise ValueError("Numeric transaction-ID suffixes must be unique.")
+    return (
+        modeling_table.assign(_raw_source_order=numeric_order.to_numpy())
+        .sort_values("_raw_source_order", kind="mergesort")
+        .drop(columns="_raw_source_order")
+        .reset_index(drop=True)
+    )
+
+
+def attach_sender_account(
+    development_data: pd.DataFrame, raw_data_path: Path, chunk_rows: int = 500_000
+) -> pd.DataFrame:
+    """Attach sender keys only to already-filtered train/validation rows."""
+
+    if not raw_data_path.exists():
+        raise FileNotFoundError(f"Raw dataset not found: {raw_data_path}")
+    required_ids = pd.Index(development_data[ID_COLUMN].astype("string"))
+    key_parts: list[pd.DataFrame] = []
+    for chunk in pd.read_csv(
+        raw_data_path,
+        usecols=[ID_COLUMN, SENDER_COLUMN],
+        dtype={ID_COLUMN: "string", SENDER_COLUMN: "string"},
+        chunksize=chunk_rows,
+    ):
+        selected = chunk.loc[chunk[ID_COLUMN].isin(required_ids)]
+        if not selected.empty:
+            key_parts.append(selected)
+    if not key_parts:
+        raise ValueError("No sender keys matched the development transactions.")
+    sender_keys = pd.concat(key_parts, ignore_index=True)
+    if sender_keys[ID_COLUMN].duplicated().any():
+        raise ValueError("The raw data contains duplicate development transaction IDs.")
+    original_ids = development_data[ID_COLUMN].astype("string").reset_index(drop=True)
+    enriched = development_data.merge(sender_keys, on=ID_COLUMN, how="left", sort=False, validate="one_to_one")
+    if not enriched[ID_COLUMN].astype("string").reset_index(drop=True).equals(original_ids):
+        raise ValueError("Joining sender keys changed the development row order.")
+    if enriched[SENDER_COLUMN].isna().any():
+        raise ValueError("One or more development rows have no sender key.")
+    return enriched
+
+
+def build_development_frames(
+    modeling_table: pd.DataFrame, partition: np.ndarray, raw_data_path: Path
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Build train/validation features after removing test rows and keys."""
+
+    if len(modeling_table) != len(partition):
+        raise ValueError("Modeling table and partition lengths do not match.")
+    observed = set(np.unique(partition).tolist())
+    if observed != {int(TRAIN_CODE), int(VALIDATION_CODE), int(TEST_CODE)}:
+        raise ValueError("The frozen train, validation, and test codes are required.")
+    development_mask = partition != TEST_CODE
+    development_partition = np.asarray(partition)[development_mask]
+    development_data = modeling_table.loc[development_mask].reset_index(drop=True)
+    development_data = attach_sender_account(development_data, raw_data_path)
+    development_data = add_sender_location_history_features(development_data, development_partition)
+    train_df = development_data.loc[development_partition == TRAIN_CODE].reset_index(drop=True)
+    validation_df = development_data.loc[development_partition == VALIDATION_CODE].reset_index(drop=True)
+    if train_df.empty or validation_df.empty:
+        raise ValueError("Training and validation frames must both be non-empty.")
+    return train_df, validation_df
+
+
 # %% Point-in-time history construction
-def _strictly_earlier_training_count(
-    ordered: pd.DataFrame,
-    entity_columns: Sequence[str],
-) -> pd.Series:
+def _strictly_earlier_training_count(ordered: pd.DataFrame, entity_columns: Sequence[str]) -> pd.Series:
     """Count earlier training events without using validation or equal-time rows."""
     entity_columns = list(entity_columns)
-    entity_cumulative = ordered.groupby(
-        entity_columns,
-        dropna=False,
-        observed=True,
-        sort=False,
-    )["_is_training_event"].cumsum()
-    same_time_cumulative = ordered.groupby(
-        [*entity_columns, TIME_COLUMN],
-        dropna=False,
-        observed=True,
-        sort=False,
-    )["_is_training_event"].cumsum()
+    entity_cumulative = ordered.groupby(entity_columns, dropna=False, observed=True, sort=False)[
+        "_is_training_event"
+    ].cumsum()
+    same_time_cumulative = ordered.groupby([*entity_columns, TIME_COLUMN], dropna=False, observed=True, sort=False)[
+        "_is_training_event"
+    ].cumsum()
     return entity_cumulative - same_time_cumulative
 
 
 def add_sender_location_history_features(
-    development_data: pd.DataFrame,
-    development_partition: np.ndarray,
+    development_data: pd.DataFrame, development_partition: np.ndarray
 ) -> pd.DataFrame:
     """Add history features to train/validation rows using training history only.
 
@@ -61,37 +127,21 @@ def add_sender_location_history_features(
     observed_codes = set(np.unique(development_partition).tolist())
     allowed_codes = {int(TRAIN_CODE), int(VALIDATION_CODE)}
     if not observed_codes.issubset(allowed_codes):
-        raise ValueError(
-            "History feature construction accepts training and validation rows only."
-        )
+        raise ValueError("History feature construction accepts training and validation rows only.")
     if observed_codes != allowed_codes:
         raise ValueError("Both training and validation rows are required.")
 
-    ordered = development_data[
-        [ID_COLUMN, TIME_COLUMN, SENDER_COLUMN, LOCATION_COLUMN]
-    ].copy()
-    ordered["_is_training_event"] = (
-        np.asarray(development_partition) == TRAIN_CODE
-    ).astype("int8")
-    ordered = ordered.sort_values(
-        [TIME_COLUMN, ID_COLUMN], kind="mergesort", na_position="first"
-    )
+    ordered = development_data[[ID_COLUMN, TIME_COLUMN, SENDER_COLUMN, LOCATION_COLUMN]].copy()
+    ordered["_is_training_event"] = (np.asarray(development_partition) == TRAIN_CODE).astype("int8")
+    ordered = ordered.sort_values([TIME_COLUMN, ID_COLUMN], kind="mergesort", na_position="first")
 
-    sender_prior = _strictly_earlier_training_count(
-        ordered,
-        [SENDER_COLUMN],
-    )
-    sender_location_prior = _strictly_earlier_training_count(
-        ordered,
-        [SENDER_COLUMN, LOCATION_COLUMN],
-    )
+    sender_prior = _strictly_earlier_training_count(ordered, [SENDER_COLUMN])
+    sender_location_prior = _strictly_earlier_training_count(ordered, [SENDER_COLUMN, LOCATION_COLUMN])
 
     features = pd.DataFrame(index=ordered.index)
     features[HISTORY_FEATURES[0]] = sender_prior.astype("int32")
     features[HISTORY_FEATURES[1]] = sender_location_prior.astype("int32")
-    features[HISTORY_FEATURES[2]] = (
-        (sender_prior > 0) & (sender_location_prior == 0)
-    ).astype("int8")
+    features[HISTORY_FEATURES[2]] = ((sender_prior > 0) & (sender_location_prior == 0)).astype("int8")
 
     enriched = development_data.copy()
     for feature in HISTORY_FEATURES:
@@ -112,10 +162,7 @@ def validate_history_features(data: pd.DataFrame) -> None:
     if not data[HISTORY_FEATURES[2]].isin([0, 1]).all():
         raise ValueError("The new-location feature must be binary.")
 
-    expected_flag = (
-        (data[HISTORY_FEATURES[0]] > 0)
-        & (data[HISTORY_FEATURES[1]] == 0)
-    ).astype("int8")
+    expected_flag = ((data[HISTORY_FEATURES[0]] > 0) & (data[HISTORY_FEATURES[1]] == 0)).astype("int8")
     if not expected_flag.equals(data[HISTORY_FEATURES[2]].astype("int8")):
         raise ValueError("The new-location feature does not match its definition.")
 
@@ -156,9 +203,7 @@ def fixed_workload_table(
         selected = ranked_positions[:alert_count]
         selected_labels = labels[selected]
         fraud_captured = int(selected_labels.sum())
-        fraudulent_value_captured = float(
-            amounts[selected][selected_labels == 1].sum()
-        )
+        fraudulent_value_captured = float(amounts[selected][selected_labels == 1].sum())
         rows.append(
             {
                 "requested_alert_rate": float(requested_rate),
@@ -169,11 +214,7 @@ def fixed_workload_table(
                 "precision": fraud_captured / alert_count,
                 "fraud_count_recall": fraud_captured / total_fraud_count,
                 "fraudulent_value_captured": fraudulent_value_captured,
-                "fraud_value_recall": (
-                    fraudulent_value_captured / total_fraud_value
-                    if total_fraud_value > 0
-                    else 0.0
-                ),
+                "fraud_value_recall": (fraudulent_value_captured / total_fraud_value if total_fraud_value > 0 else 0.0),
             }
         )
     return pd.DataFrame(rows)
@@ -187,9 +228,7 @@ def candidate_progression_decision(
     comparison_alert_rate: float = 0.05,
 ) -> dict[str, object]:
     """Apply the predeclared validation rule without consulting test evidence."""
-    control_row = control_workload.loc[
-        np.isclose(control_workload["requested_alert_rate"], comparison_alert_rate)
-    ]
+    control_row = control_workload.loc[np.isclose(control_workload["requested_alert_rate"], comparison_alert_rate)]
     candidate_row = candidate_workload.loc[
         np.isclose(candidate_workload["requested_alert_rate"], comparison_alert_rate)
     ]
@@ -199,22 +238,13 @@ def candidate_progression_decision(
     candidate = candidate_row.iloc[0]
 
     pr_auc_improved = candidate_pr_auc > control_pr_auc
-    count_not_worse = (
-        candidate["fraud_count_recall"] >= control["fraud_count_recall"]
-    )
-    value_not_worse = (
-        candidate["fraud_value_recall"] >= control["fraud_value_recall"]
-    )
+    count_not_worse = candidate["fraud_count_recall"] >= control["fraud_count_recall"]
+    value_not_worse = candidate["fraud_value_recall"] >= control["fraud_value_recall"]
     operational_improvement = (
         candidate["fraud_count_recall"] > control["fraud_count_recall"]
         or candidate["fraud_value_recall"] > control["fraud_value_recall"]
     )
-    progresses = bool(
-        pr_auc_improved
-        and count_not_worse
-        and value_not_worse
-        and operational_improvement
-    )
+    progresses = bool(pr_auc_improved and count_not_worse and value_not_worse and operational_improvement)
     return {
         "selection_data": "validation_only",
         "comparison_alert_rate": comparison_alert_rate,
@@ -222,9 +252,7 @@ def candidate_progression_decision(
         "candidate_validation_pr_auc": float(candidate_pr_auc),
         "absolute_pr_auc_change": float(candidate_pr_auc - control_pr_auc),
         "relative_pr_auc_change": float(
-            (candidate_pr_auc - control_pr_auc) / control_pr_auc
-            if control_pr_auc
-            else 0.0
+            (candidate_pr_auc - control_pr_auc) / control_pr_auc if control_pr_auc else 0.0
         ),
         "control_fraud_count_recall": float(control["fraud_count_recall"]),
         "candidate_fraud_count_recall": float(candidate["fraud_count_recall"]),

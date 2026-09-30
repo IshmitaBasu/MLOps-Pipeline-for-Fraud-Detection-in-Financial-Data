@@ -1,6 +1,6 @@
 <mxfile host="app.diagrams.net" agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36" pages="3">
   <diagram id="uml-component-fraud-mlops-v2" name="UML Component Diagram">
-    <mxGraphModel dx="1894" dy="1005" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1800" pageHeight="1050" math="0" shadow="0">
+    <mxGraphModel dx="1994" dy="1022" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1800" pageHeight="1050" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
@@ -13,8 +13,11 @@
         <mxCell id="cont_data" parent="1" style="swimlane;html=1;whiteSpace=wrap;rounded=0;shadow=0;startSize=30;fontStyle=1;fontSize=13;strokeWidth=1.2;fillColor=#f8f9fa;strokeColor=#777777;" value="Data and feature management" vertex="1">
           <mxGeometry height="350" width="420" x="60" y="105" as="geometry" />
         </mxCell>
-        <mxCell id="feast" parent="cont_data" style="rounded=1;whiteSpace=wrap;html=1;align=center;verticalAlign=middle;strokeWidth=1.2;fontSize=12;fillColor=#fff2cc;strokeColor=#d6b656;" value="&amp;lt;&amp;lt;component&amp;gt;&amp;gt;&lt;br&gt;&lt;b&gt;Feast Feature Store&lt;/b&gt;&lt;br&gt;&lt;span style=&quot;font-size:10px&quot;&gt;frozen baseline v1;&lt;br&gt;reviewed snapshots only;&lt;br&gt;offline retrieval&lt;/span&gt;" vertex="1">
-          <mxGeometry height="75" width="145" x="240" y="195" as="geometry" />
+        <mxCell id="feast" parent="cont_data" style="rounded=1;whiteSpace=wrap;html=1;align=center;verticalAlign=middle;strokeWidth=1.2;fontSize=12;fillColor=#fff2cc;strokeColor=#d6b656;" value="&amp;lt;&amp;lt;component&amp;gt;&amp;gt;&lt;br&gt;&lt;b&gt;Feast Feature Store&lt;/b&gt;&lt;br&gt;&lt;span style=&quot;font-size:10px&quot;&gt;original features v1 + behaviour v2;&lt;br&gt;historical Parquet retrieval;&lt;br&gt;SQLite online retrieval&lt;/span&gt;" vertex="1">
+          <mxGeometry height="90" width="165" x="220" y="185" as="geometry" />
+        </mxCell>
+        <mxCell id="ingestion_db" parent="cont_data" style="rounded=1;whiteSpace=wrap;html=1;align=center;verticalAlign=middle;strokeWidth=1.2;fontSize=12;fillColor=#dae8fc;strokeColor=#6c8ebf;" value="&lt;b&gt;SQLite Data-Pipeline Store&lt;/b&gt;&lt;br&gt;&lt;span style=&quot;font-size:10px&quot;&gt;raw_transactions&lt;br&gt;clean_transactions&lt;br&gt;ingestion_batches&lt;/span&gt;" vertex="1">
+          <mxGeometry height="95" width="155" x="35" y="190" as="geometry" />
         </mxCell>
         <mxCell id="cont_train" parent="1" style="swimlane;html=1;whiteSpace=wrap;rounded=0;shadow=0;startSize=30;fontStyle=1;fontSize=13;strokeWidth=1.2;fillColor=#f8f9fa;strokeColor=#777777;" value="Training and model management" vertex="1">
           <mxGeometry height="350" width="420" x="540" y="105" as="geometry" />
@@ -51,7 +54,7 @@
         <mxCell id="mlflow_track" parent="1" style="shape=component;whiteSpace=wrap;html=1;boundedLbl=1;align=center;verticalAlign=middle;strokeWidth=1.2;fontSize=12;fillColor=#e1d5e7;strokeColor=#9673a6;" value="&amp;lt;&amp;lt;component&amp;gt;&amp;gt;&lt;br&gt;&lt;b&gt;MLflow Tracking&lt;/b&gt;&lt;br&gt;&lt;span style=&quot;font-size:10px&quot;&gt;parameters, metrics,&lt;br&gt;plots, artifacts,&lt;br&gt;feature-version refs&lt;/span&gt;" vertex="1">
           <mxGeometry height="95" width="145" x="780" y="150" as="geometry" />
         </mxCell>
-        <mxCell id="api" parent="1" style="shape=component;whiteSpace=wrap;html=1;boundedLbl=1;align=center;verticalAlign=middle;strokeWidth=1.2;fontSize=12;fillColor=#f8cecc;strokeColor=#b85450;" value="&amp;lt;&amp;lt;component&amp;gt;&amp;gt;&lt;br&gt;&lt;b&gt;FastAPI Serving&lt;/b&gt;&lt;br&gt;&lt;span style=&quot;font-size:10px&quot;&gt;request validation,&lt;br&gt;champion model loading,&lt;br&gt;probability and decision&lt;/span&gt;" vertex="1">
+        <mxCell id="api" parent="1" style="shape=component;whiteSpace=wrap;html=1;boundedLbl=1;align=center;verticalAlign=middle;strokeWidth=1.2;fontSize=12;fillColor=#f8cecc;strokeColor=#b85450;" value="&amp;lt;&amp;lt;component&amp;gt;&amp;gt;&lt;br&gt;&lt;b&gt;FastAPI Serving&lt;/b&gt;&lt;br&gt;&lt;span style=&quot;font-size:10px&quot;&gt;request validation + online feature lookup,&lt;br&gt;champion model loading,&lt;br&gt;probability and decision&lt;/span&gt;" vertex="1">
           <mxGeometry height="100" width="150" x="1210" y="155" as="geometry" />
         </mxCell>
         <mxCell id="monitor" parent="1" style="shape=component;whiteSpace=wrap;html=1;boundedLbl=1;align=center;verticalAlign=middle;strokeWidth=1.2;fontSize=12;fillColor=#d5f5f6;strokeColor=#6ca6a8;" value="&amp;lt;&amp;lt;component&amp;gt;&amp;gt;&lt;br&gt;&lt;b&gt;Monitoring Module&lt;/b&gt;&lt;br&gt;&lt;span style=&quot;font-size:10px&quot;&gt;data quality, drift,&lt;br&gt;predictions, performance,&lt;br&gt;expected cost&lt;/span&gt;" vertex="1">
@@ -63,11 +66,8 @@
         <mxCell id="git" parent="1" style="rounded=1;whiteSpace=wrap;html=1;align=center;verticalAlign=middle;strokeWidth=1.2;fontSize=12;fillColor=#f5f5f5;strokeColor=#666666;" value="&lt;b&gt;Git Repository&lt;/b&gt;&lt;br&gt;&lt;span style=&quot;font-size:10px&quot;&gt;pipelines, services, tests,&lt;br&gt;feature definitions,&lt;br&gt;configs and documentation&lt;/span&gt;" vertex="1">
           <mxGeometry height="75" width="190" x="250" y="700" as="geometry" />
         </mxCell>
-        <mxCell id="feat_files" parent="1" style="rounded=1;whiteSpace=wrap;html=1;align=center;verticalAlign=middle;strokeWidth=1.2;fontSize=12;fillColor=#fff2cc;strokeColor=#d6b656;" value="&lt;b&gt;Feature Store Files&lt;/b&gt;&lt;br&gt;&lt;span style=&quot;font-size:10px&quot;&gt;Parquet offline store,&lt;br&gt;feature schema,&lt;br&gt;metadata&lt;/span&gt;" vertex="1">
+        <mxCell id="feat_files" parent="1" style="rounded=1;whiteSpace=wrap;html=1;align=center;verticalAlign=middle;strokeWidth=1.2;fontSize=12;fillColor=#fff2cc;strokeColor=#d6b656;" value="&lt;b&gt;Versioned Feature Store Storage&lt;/b&gt;&lt;br&gt;&lt;span style=&quot;font-size:10px&quot;&gt;Parquet historical tables + registry,&lt;br&gt;SQLite online store,&lt;br&gt;schema/lineage; frozen prototype state&lt;/span&gt;" vertex="1">
           <mxGeometry height="75" width="190" x="500" y="700" as="geometry" />
-        </mxCell>
-        <mxCell id="ingestion_db" parent="cont_data" style="rounded=1;whiteSpace=wrap;html=1;align=center;verticalAlign=middle;strokeWidth=1.2;fontSize=12;fillColor=#dae8fc;strokeColor=#6c8ebf;" value="&lt;b&gt;SQLite Data-Pipeline Store&lt;/b&gt;&lt;br&gt;&lt;span style=&quot;font-size:10px&quot;&gt;raw_transactions&lt;br&gt;clean_transactions&lt;br&gt;ingestion_batches&lt;/span&gt;" vertex="1">
-          <mxGeometry height="95" width="155" x="35" y="190" as="geometry" />
         </mxCell>
         <mxCell id="model_art" parent="1" style="rounded=1;whiteSpace=wrap;html=1;align=center;verticalAlign=middle;strokeWidth=1.2;fontSize=12;fillColor=#f5f5f5;strokeColor=#666666;" value="&lt;b&gt;MLflow Database / Artifacts&lt;/b&gt;&lt;br&gt;&lt;span style=&quot;font-size:10px&quot;&gt;runs, model pipelines,&lt;br&gt;evaluation reports,&lt;br&gt;registry metadata&lt;/span&gt;" vertex="1">
           <mxGeometry height="75" width="190" x="750" y="700" as="geometry" />
@@ -96,10 +96,13 @@
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
         <mxCell id="ingestion_to_feast" edge="1" parent="1" source="ingestion_db" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=open;endFill=0;dashed=1;dashPattern=8 4;strokeWidth=1.2;strokeColor=#777777;fontSize=10;labelBackgroundColor=#ffffff;" target="feast" value="reviewed snapshot / non-automatic promotion">
-          <mxGeometry relative="1" as="geometry" />
+          <mxGeometry relative="1" x="0.4678" y="58" as="geometry">
+            <mxPoint x="-20" y="3" as="offset" />
+          </mxGeometry>
         </mxCell>
-        <mxCell id="e3" edge="1" parent="1" source="feast" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeWidth=1.4;strokeColor=#444444;fontSize=10;labelBackgroundColor=#ffffff;" target="ml_pipe" value="training features">
-          <mxGeometry relative="1" as="geometry">
+        <mxCell id="e3" edge="1" parent="1" source="feast" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeWidth=1.4;strokeColor=#444444;fontSize=10;labelBackgroundColor=#ffffff;" target="ml_pipe" value="point-in-time training features (v1 + v2)">
+          <mxGeometry relative="1" x="-1" y="-174" as="geometry">
+            <mxPoint x="-155" y="-94" as="offset" />
             <Array as="points">
               <mxPoint x="500" y="320" />
               <mxPoint x="500" y="220" />
@@ -129,7 +132,7 @@
         <mxCell id="e9" edge="1" parent="1" source="monitor" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeWidth=1.4;strokeColor=#444444;fontSize=10;labelBackgroundColor=#ffffff;" target="flag" value="rule evaluation">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="e10" edge="1" parent="1" source="feast" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=open;endFill=0;dashed=1;strokeWidth=1.2;strokeColor=#777777;fontSize=10;labelBackgroundColor=#ffffff;" target="api" value="feature schema / input contract">
+        <mxCell id="e10" edge="1" parent="1" source="feast" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeWidth=1.4;strokeColor=#444444;fontSize=10;labelBackgroundColor=#ffffff;" target="api" value="v2 online behavioural features">
           <mxGeometry relative="1" x="0.2249" y="-12" as="geometry">
             <mxPoint y="1" as="offset" />
             <Array as="points">
@@ -187,7 +190,7 @@
             </Array>
           </mxGeometry>
         </mxCell>
-        <mxCell id="d3" edge="1" parent="1" source="feast" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=open;endFill=0;dashed=1;strokeWidth=1.2;strokeColor=#777777;fontSize=10;labelBackgroundColor=#ffffff;" target="feat_files" value="offline store / metadata">
+        <mxCell id="d3" edge="1" parent="1" source="feast" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=open;endFill=0;dashed=1;strokeWidth=1.2;strokeColor=#777777;fontSize=10;labelBackgroundColor=#ffffff;" target="feat_files" value="historical + online state / metadata">
           <mxGeometry relative="1" as="geometry">
             <Array as="points">
               <mxPoint x="395" y="600" />
@@ -292,11 +295,11 @@
         <mxCell id="VtsGLTwwRoJ1zQ5SijuR-21" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=12;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=12;fontFamily=Arial;spacing=8;" value="Record ingestion outcome and stop automatic data run&lt;br&gt;&lt;span style=&quot;font-size:10px&quot;&gt;ingestion_batches enforces ml_pipeline_triggered = 0&lt;/span&gt;" vertex="1">
           <mxGeometry height="60" width="330" x="970" y="-90" as="geometry" />
         </mxCell>
-        <mxCell id="VtsGLTwwRoJ1zQ5SijuR-22" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=12;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;fontFamily=Arial;spacing=8;" value="On separate approval: snapshot selected clean data and retrieve Feast features for training" vertex="1">
-          <mxGeometry height="55" width="330" x="970" y="35" as="geometry" />
+        <mxCell id="VtsGLTwwRoJ1zQ5SijuR-22" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=12;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;fontFamily=Arial;spacing=8;" value="On separate approval: snapshot selected clean data and freeze the stratified train/validation/test split" vertex="1">
+          <mxGeometry height="65" width="330" x="970" y="30" as="geometry" />
         </mxCell>
-        <mxCell id="VtsGLTwwRoJ1zQ5SijuR-23" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=12;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;fontFamily=Arial;spacing=8;" value="Split data into train, validation, and test sets" vertex="1">
-          <mxGeometry height="55" width="330" x="970" y="110" as="geometry" />
+        <mxCell id="VtsGLTwwRoJ1zQ5SijuR-23" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=12;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;fontFamily=Arial;spacing=8;" value="Build point-in-time history from training rows only&lt;br&gt;&lt;span style=&quot;font-size:10px&quot;&gt;validation/test do not update state; register/materialize Feast v2; verify offline/online equality&lt;/span&gt;" vertex="1">
+          <mxGeometry height="65" width="330" x="970" y="105" as="geometry" />
         </mxCell>
         <mxCell id="VtsGLTwwRoJ1zQ5SijuR-24" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=12;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;fontFamily=Arial;spacing=8;" value="Fit preprocessing on training split only&lt;br&gt;&lt;span style=&quot;font-size:10px&quot;&gt;imputation, scaling and encoding inside the model pipeline&lt;/span&gt;" vertex="1">
           <mxGeometry height="70" width="330" x="970" y="185" as="geometry" />
@@ -322,8 +325,8 @@
         <mxCell id="VtsGLTwwRoJ1zQ5SijuR-31" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=12;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=12;fontFamily=Arial;spacing=8;" value="Register approved pipeline and assign MLflow champion alias and threshold" vertex="1">
           <mxGeometry height="60" width="330" x="970" y="705" as="geometry" />
         </mxCell>
-        <mxCell id="VtsGLTwwRoJ1zQ5SijuR-32" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=12;fillColor=#d5f5f6;strokeColor=#6bb8bb;fontSize=12;fontFamily=Arial;spacing=8;" value="Start FastAPI, load champion pipeline and validate transaction request" vertex="1">
-          <mxGeometry height="55" width="330" x="970" y="785" as="geometry" />
+        <mxCell id="VtsGLTwwRoJ1zQ5SijuR-32" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=12;fillColor=#d5f5f6;strokeColor=#6bb8bb;fontSize=12;fontFamily=Arial;spacing=8;" value="Start FastAPI, load champion pipeline, validate request and retrieve v2 features from the online store" vertex="1">
+          <mxGeometry height="65" width="330" x="970" y="780" as="geometry" />
         </mxCell>
         <mxCell id="VtsGLTwwRoJ1zQ5SijuR-33" parent="1" style="rounded=1;whiteSpace=wrap;html=1;arcSize=12;fillColor=#d5f5f6;strokeColor=#6bb8bb;fontSize=12;fontFamily=Arial;spacing=8;" value="Generate probability and decision; persist versioned prediction log" vertex="1">
           <mxGeometry height="65" width="330" x="970" y="860" as="geometry" />
@@ -490,7 +493,7 @@
         <mxCell id="rV7VTmRX6JQlloZNTNBi-7" parent="1" style="rounded=1;whiteSpace=wrap;html=1;strokeColor=#777777;fillColor=#ffffff;fontFamily=Arial;fontSize=11;arcSize=8;spacing=6;" value="&lt;b&gt;&amp;laquo;component&amp;raquo;&lt;br&gt;Scheduled data ingestion&lt;/b&gt;&lt;br&gt;Windows Task Scheduler scan,&lt;br&gt;validation, cleaning and append" vertex="1">
           <mxGeometry height="75" width="180" x="280" y="130" as="geometry" />
         </mxCell>
-        <mxCell id="rV7VTmRX6JQlloZNTNBi-8" parent="1" style="rounded=1;whiteSpace=wrap;html=1;strokeColor=#777777;fillColor=#ffffff;fontFamily=Arial;fontSize=11;arcSize=8;spacing=6;" value="&lt;b&gt;&amp;laquo;component&amp;raquo;&lt;br&gt;ML pipeline&lt;/b&gt;&lt;br&gt;split, preprocessing, experiments,&lt;br&gt;evaluation and approval" vertex="1">
+        <mxCell id="rV7VTmRX6JQlloZNTNBi-8" parent="1" style="rounded=1;whiteSpace=wrap;html=1;strokeColor=#777777;fillColor=#ffffff;fontFamily=Arial;fontSize=11;arcSize=8;spacing=6;" value="&lt;b&gt;&amp;laquo;component&amp;raquo;&lt;br&gt;ML and Feast pipeline&lt;/b&gt;&lt;br&gt;split, point-in-time features,&lt;br&gt;experiments, evaluation and approval" vertex="1">
           <mxGeometry height="75" width="180" x="500" y="130" as="geometry" />
         </mxCell>
         <mxCell id="rV7VTmRX6JQlloZNTNBi-9" parent="1" style="rounded=1;whiteSpace=wrap;html=1;strokeColor=#777777;fillColor=#ffffff;fontFamily=Arial;fontSize=11;arcSize=8;spacing=6;" value="&lt;b&gt;&amp;laquo;component&amp;raquo;&lt;br&gt;Python monitoring batch&lt;/b&gt;&lt;br&gt;quality, drift, predictions,&lt;br&gt;performance, cost and flags" vertex="1">
@@ -499,7 +502,7 @@
         <mxCell id="rV7VTmRX6JQlloZNTNBi-10" parent="1" style="rounded=1;whiteSpace=wrap;html=1;strokeColor=#777777;fillColor=#ffffff;fontFamily=Arial;fontSize=11;arcSize=8;spacing=6;" value="&lt;b&gt;&amp;laquo;service&amp;raquo;&lt;br&gt;MLflow tracking and registry :5000&lt;/b&gt;&lt;br&gt;runs, artifacts, model versions,&lt;br&gt;candidate/champion aliases" vertex="1">
           <mxGeometry height="75" width="180" x="830" y="130" as="geometry" />
         </mxCell>
-        <mxCell id="rV7VTmRX6JQlloZNTNBi-11" parent="1" style="rounded=1;whiteSpace=wrap;html=1;strokeColor=#777777;fillColor=#ffffff;fontFamily=Arial;fontSize=11;arcSize=8;spacing=6;" value="&lt;b&gt;&amp;laquo;service&amp;raquo;&lt;br&gt;FastAPI prediction service :8000&lt;/b&gt;&lt;br&gt;validates requests, loads champion,&lt;br&gt;predicts and persists logs" vertex="1">
+        <mxCell id="rV7VTmRX6JQlloZNTNBi-11" parent="1" style="rounded=1;whiteSpace=wrap;html=1;strokeColor=#777777;fillColor=#ffffff;fontFamily=Arial;fontSize=11;arcSize=8;spacing=6;" value="&lt;b&gt;&amp;laquo;service&amp;raquo;&lt;br&gt;FastAPI prediction service :8000&lt;/b&gt;&lt;br&gt;validates requests, reads online features,&lt;br&gt;loads champion, predicts and logs" vertex="1">
           <mxGeometry height="75" width="180" x="1040" y="130" as="geometry" />
         </mxCell>
         <mxCell id="rV7VTmRX6JQlloZNTNBi-12" parent="1" style="rounded=1;whiteSpace=wrap;html=1;strokeColor=#777777;fillColor=#ffffff;fontFamily=Arial;fontSize=11;arcSize=8;spacing=6;" value="&lt;b&gt;&amp;laquo;service&amp;raquo;&lt;br&gt;Streamlit dashboard :8501&lt;/b&gt;&lt;br&gt;monitoring history, metrics&lt;br&gt;and investigation flags" vertex="1">
@@ -511,8 +514,8 @@
         <mxCell id="deployment_data_db" parent="1" style="rounded=1;whiteSpace=wrap;html=1;strokeColor=#6C8EBF;fillColor=#EAF2FF;fontFamily=Arial;fontSize=11;arcSize=8;spacing=6;" value="&lt;b&gt;&amp;laquo;database&amp;raquo;&lt;br&gt;fraud_pipeline.db&lt;/b&gt;&lt;br&gt;raw and clean transactions;&lt;br&gt;ingestion batch audit" vertex="1">
           <mxGeometry height="75" width="165" x="430" y="450" as="geometry" />
         </mxCell>
-        <mxCell id="rV7VTmRX6JQlloZNTNBi-14" parent="1" style="rounded=1;whiteSpace=wrap;html=1;strokeColor=#777777;fillColor=#ffffff;fontFamily=Arial;fontSize=11;arcSize=8;spacing=6;" value="&lt;b&gt;&amp;laquo;artifact&amp;raquo;&lt;br&gt;Feast offline store&lt;/b&gt;&lt;br&gt;features, schema,&lt;br&gt;metadata, definitions" vertex="1">
-          <mxGeometry height="75" width="145" x="610" y="450" as="geometry" />
+        <mxCell id="rV7VTmRX6JQlloZNTNBi-14" parent="1" style="rounded=1;whiteSpace=wrap;html=1;strokeColor=#777777;fillColor=#ffffff;fontFamily=Arial;fontSize=11;arcSize=8;spacing=6;" value="&lt;b&gt;&amp;laquo;artifact/database&amp;raquo;&lt;br&gt;Feast feature storage&lt;/b&gt;&lt;br&gt;Parquet history + registry;&lt;br&gt;SQLite online_store.db;&lt;br&gt;v1/v2 schema and lineage" vertex="1">
+          <mxGeometry height="90" width="145" x="610" y="442" as="geometry" />
         </mxCell>
         <mxCell id="rV7VTmRX6JQlloZNTNBi-15" parent="1" style="rounded=1;whiteSpace=wrap;html=1;strokeColor=#777777;fillColor=#ffffff;fontFamily=Arial;fontSize=11;arcSize=8;spacing=6;" value="&lt;b&gt;&amp;laquo;artifact&amp;raquo;&lt;br&gt;MLflow database and artifacts&lt;/b&gt;&lt;br&gt;runs, model pipelines,&lt;br&gt;evaluation and registry data" vertex="1">
           <mxGeometry height="75" width="160" x="770" y="450" as="geometry" />
@@ -556,6 +559,12 @@
           </mxGeometry>
         </mxCell>
         <mxCell id="rV7VTmRX6JQlloZNTNBi-21" edge="1" parent="1" source="rV7VTmRX6JQlloZNTNBi-16" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#777777;dashed=1;endArrow=block;endFill=1;fontFamily=Arial;fontSize=10;labelBackgroundColor=#ffffff;" target="rV7VTmRX6JQlloZNTNBi-5" value="service code / config">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="deployment_feast_materialize" edge="1" parent="1" source="rV7VTmRX6JQlloZNTNBi-8" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#444444;endArrow=block;endFill=1;fontFamily=Arial;fontSize=10;labelBackgroundColor=#ffffff;" target="rV7VTmRX6JQlloZNTNBi-14" value="build, register and materialize v2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="deployment_feast_online_read" edge="1" parent="1" source="rV7VTmRX6JQlloZNTNBi-14" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#444444;endArrow=block;endFill=1;fontFamily=Arial;fontSize=10;labelBackgroundColor=#ffffff;" target="rV7VTmRX6JQlloZNTNBi-11" value="online behavioural features">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
         <mxCell id="deployment_client_edge" edge="1" parent="1" source="deployment_client" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#444444;endArrow=block;endFill=1;fontFamily=Arial;fontSize=10;labelBackgroundColor=#ffffff;" target="rV7VTmRX6JQlloZNTNBi-11" value="HTTP request / response">

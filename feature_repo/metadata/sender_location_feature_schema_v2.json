@@ -1,0 +1,35 @@
+{
+  "feature_version": "v2",
+  "feature_service": "fraud_behaviour_features_v2",
+  "tables": {
+    "sender": [
+      {
+        "name": "sender_account",
+        "pandas_dtype": "object"
+      },
+      {
+        "name": "event_timestamp",
+        "pandas_dtype": "datetime64[ns, UTC]"
+      },
+      {
+        "name": "sender_prior_transaction_count",
+        "pandas_dtype": "int64"
+      }
+    ],
+    "sender_location": [
+      {
+        "name": "sender_location_key",
+        "pandas_dtype": "object"
+      },
+      {
+        "name": "event_timestamp",
+        "pandas_dtype": "datetime64[ns, UTC]"
+      },
+      {
+        "name": "sender_location_prior_transaction_count",
+        "pandas_dtype": "int64"
+      }
+    ]
+  },
+  "target_registered_as_feature": false
+}

@@ -2,7 +2,7 @@
 
 The stage-06 runner handles two related workflows in one Python file: completed model and imbalance screening, and the new Random Forest tuning search. The file remains a normal `.py` script and uses `# %%` markers so its sections can also be opened as cells in VS Code or Spyder.
 
-> **Execution status, updated 25 September 2026:** Screening, the tuning smoke test, and full-data validation tuning are complete. Full tuning summary run `0653535d894b47e4af7c7db43a51c3cd` selected `rf_leaf_50` by Average Precision, but supervisor review concluded that its predictive quality is insufficient. It will not proceed to final-test evaluation or registration. Revised experiments are predeclared in `07_predictive_quality_improvement_plan.md`.
+> **Execution status, updated 25 September 2026:** Screening, the tuning smoke test, and full-data validation tuning are complete. Full tuning summary run `0653535d894b47e4af7c7db43a51c3cd` selected `rf_leaf_50` by Average Precision, but the results review concluded that its predictive quality is insufficient. It will not proceed to final-test evaluation or registration. Revised experiments are predeclared in `07_predictive_quality_improvement_plan.md`.
 
 ## Files and responsibilities
 
@@ -149,4 +149,4 @@ Tuning mode does not:
 - register a champion model; or
 - choose a deployment threshold automatically.
 
-The full tuning output selected `rf_leaf_50`, but no operating threshold was frozen. Supervisor review subsequently stopped its progression and requested revised feature, oversampling, model, and transaction-value experiments. Re-running stage 06 or opening its test period is not the current next action; work continues under the stage-07 plan.
+The full tuning output selected `rf_leaf_50`, but no operating threshold was frozen. A subsequent review stopped its progression and established revised feature, oversampling, model, and transaction-value experiments. Re-running stage 06 or opening its test period is not the current next action; work continues under the stage-07 plan.

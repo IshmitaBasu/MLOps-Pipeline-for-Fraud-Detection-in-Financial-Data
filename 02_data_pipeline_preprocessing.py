@@ -20,13 +20,13 @@
 # %%
 # This cell imports the standard library and data-analysis packages used throughout the pipeline.
 import argparse
-import hashlib
-import json
 import re
 from datetime import datetime, timezone
 from pathlib import Path
 
 import pandas as pd
+
+from project_io_utils import save_json_atomically, save_parquet_atomically, sha256_file
 
 # %%
 # This cell defines project paths, dataset names, expected schema, and the final columns to save.
@@ -346,33 +346,6 @@ def save_gold_table(df_clean_table: pd.DataFrame, output_file: Path) -> Path:
         ) from exc
 
     print("Saved gold table:", output_file)
-    return output_file
-
-
-def sha256_file(path: Path, chunk_size: int = 8 * 1024 * 1024) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as file_handle:
-        while chunk := file_handle.read(chunk_size):
-            digest.update(chunk)
-    return digest.hexdigest()
-
-
-def save_parquet_atomically(table: pd.DataFrame, output_file: Path) -> Path:
-    output_file.parent.mkdir(parents=True, exist_ok=True)
-    temporary_file = output_file.with_name(f"{output_file.stem}_temporary{output_file.suffix}")
-    table.to_parquet(temporary_file, index=False)
-    temporary_file.replace(output_file)
-    return output_file
-
-
-def save_json_atomically(payload: dict, output_file: Path) -> Path:
-    output_file.parent.mkdir(parents=True, exist_ok=True)
-    temporary_file = output_file.with_name(f"{output_file.stem}_temporary{output_file.suffix}")
-    temporary_file.write_text(
-        json.dumps(payload, indent=2, default=str),
-        encoding="utf-8",
-    )
-    temporary_file.replace(output_file)
     return output_file
 
 
