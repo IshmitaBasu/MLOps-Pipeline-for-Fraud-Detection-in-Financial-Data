@@ -18,3 +18,5 @@
 /advanced_implementation/
 __pycache__/
 *.pyc
+# Local receipt preventing repeated canonical test evaluation
+final_test_evaluation/

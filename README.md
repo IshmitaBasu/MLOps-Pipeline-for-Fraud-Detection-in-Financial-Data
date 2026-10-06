@@ -6,7 +6,7 @@
 
 This folder contains the current data-analysis and preparation work for my Master's thesis on building an end-to-end MLOps pipeline for financial fraud detection.
 
-The project focuses on two things at the same time: detecting fraudulent transactions and showing how the machine-learning workflow can be made reproducible, traceable, and maintainable. Data preparation, the original local Feast handoff, automated batch-data triggering, the full-data Feast-backed baseline comparison, controlled feature engineering, and the first validation-only model-optimisation stage are complete. A predictive-quality review concluded that further modelling was required, after which the stratified random-split behavioural diagnostic, controlled sender-location experiment, versioned Feast behavioural contract, and full-data imbalance comparison were completed. The next modelling stage compares additional model families using the retained class-weight treatment while the held-out test remains closed.
+The project focuses on detecting fraudulent transactions and making the machine-learning workflow reproducible, traceable, and maintainable. Data preparation, automated batch ingestion, Feast contracts, model comparisons, imbalance experiments, tuning, voting diagnostics, and final test evaluation are complete. The evaluated LightGBM uses the frozen validation maximum-F1 threshold, with separate review-workload scenarios. Test results confirm weak predictive performance. The fitted pipeline is saved for a subsequent prototype registry and serving workflow; it has not been registered or promoted.
 
 ## Current Workflow
 
@@ -25,10 +25,12 @@ The workflow follows this process-model order:
 11. Versioned sender-location Feast contract and local online consistency - complete
 12. Controlled oversampling comparison - complete; class weighting retained
 13. Additional model-family comparison - complete; LightGBM selected
-14. Limited LightGBM tuning and operating-rule selection - planned
-15. Candidate review, final evaluation, and MLflow model registration - planned
-16. FastAPI serving and versioned prediction logging - planned
-17. Batch monitoring, rule-based flags, and Streamlit visualization - planned
+14. Limited LightGBM tuning - complete; reference configuration retained
+15. Stage 13 validation threshold and voting-ensemble comparison - complete; LightGBM reference retained
+16. Final evaluation rules - frozen; validation maximum-F1 threshold plus three workload scenarios
+17. Stage 14 final test evaluation - complete; exact evaluated pipeline saved; model registration remains pending
+18. FastAPI serving and versioned prediction logging - planned
+19. Batch monitoring, rule-based flags, and Streamlit visualization - planned
 
 This order is intentional. The initial EDA happens before cleaning so that the cleaning decisions are based on evidence from the raw data. The baseline stage compares fixed non-skill, linear, and nonlinear configurations using only the original predictors. The feature experiment then keeps the selected Random Forest fixed and changes only the input features. Model-family screening, imbalance handling, and tuning were subsequently kept as separate controlled experiments.
 
@@ -141,6 +143,13 @@ Code snippets/
 |-- 10_oversampling_experiment_with_mlflow.py  # Controlled imbalance-strategy comparison runner
 |-- model_family_comparison_utils.py            # Frozen Stage 11 configuration and selection rules
 |-- 11_model_family_comparison_with_mlflow.py   # Validation-only Stage 11 runner
+|-- validation_evaluation_utils.py              # Shared train/validation-only evaluation logic
+|-- lightgbm_tuning_utils.py                    # Frozen Stage 12 configurations and decision rules
+|-- 12_lightgbm_tuning_with_mlflow.py           # Limited validation-only LightGBM tuning runner
+|-- voting_classifier_utils.py                 # Fixed ensembles, threshold tables, and safeguards
+|-- 13_voting_classifier_comparison_with_mlflow.py  # Voting and threshold validation runner
+|-- final_test_evaluation_utils.py              # Frozen test protocol, history queries, and one-time receipt
+|-- 14_final_test_evaluation_with_mlflow.py     # Final evaluation at validation-frozen rules
 |-- requirements.txt                          # Pinned dependencies, including imbalance and boosting libraries
 |-- Markdown files/
 |   |-- 05_feature_engineering_experiment_plan.md       # Pre-run question, controls, and decision rules
@@ -162,7 +171,16 @@ Code snippets/
 |   |-- 10_oversampling_experiment_results.md  # Smoke and full comparison evidence
 |   |-- 11_model_family_comparison_plan.md  # Frozen full-data families and KNN feasibility rules
 |   |-- 11_model_family_comparison_implementation_guide.md  # Handoff and safeguards
-|   `-- 11_model_family_comparison_results.md  # Pre-run checks and later model evidence
+|   |-- 11_model_family_comparison_results.md  # Model-family comparison evidence
+|   |-- 12_lightgbm_tuning_plan.md  # Fixed limited tuning question and decision rule
+|   |-- 12_lightgbm_tuning_implementation_guide.md  # Tuning safeguards and commands
+|   |-- 12_lightgbm_tuning_results.md  # Complete tuning and classification evidence
+|   |-- 13_voting_classifier_comparison_plan.md  # Voting question and predeclared rules
+|   |-- 13_voting_classifier_comparison_implementation_guide.md  # Commands and artifacts
+|   |-- 13_voting_classifier_comparison_results.md  # Complete voting and threshold comparison
+|   |-- 14_final_test_evaluation_plan.md  # Frozen final protocol and limitations
+|   |-- 14_final_test_evaluation_implementation_guide.md  # Execution and one-time safeguards
+|   `-- 14_final_test_evaluation_results.md  # Final held-out evidence and interpretation
 |-- tests/
 |   |-- test_feature_store_handoff.py          # Feast handoff round-trip integration test
 |   |-- test_automated_data_pipeline.py        # Trigger, duplicate, failure, and separation tests
@@ -172,7 +190,11 @@ Code snippets/
 |   |-- test_sender_location_history_feature_experiment.py  # Point-in-time and workload safeguards
 |   |-- test_sender_location_feature_store.py  # Offline/online consistency safeguards
 |   |-- test_oversampling_experiment.py        # Train-only resampling safeguards
-|   `-- test_model_family_comparison.py        # Stage 11 handoff and selection safeguards
+|   |-- test_model_family_comparison.py        # Stage 11 handoff and selection safeguards
+|   `-- test_lightgbm_tuning.py                # Stage 12 handoff and tuning safeguards
+|-- tests/test_validation_evaluation.py        # Threshold, confusion-count, and metric reporting checks
+|-- tests/test_voting_classifier.py            # Real voting arithmetic and threshold/selection safeguards
+|-- tests/test_final_test_evaluation.py         # Test-history isolation and frozen-rule safeguards
 |-- Architecture_Diagram.drawio                # Component, activity, and deployment diagrams
 |-- sample_financial_fraud_detection_dataset.csv
 |-- README.md
@@ -202,6 +224,17 @@ Code snippets/
 | Why does Stage 11 repeat earlier models, which additional families will it compare, and how can one progress? | `Markdown files/11_model_family_comparison_plan.md` |
 | How is the Stage 11 comparison controlled and executed? | `Markdown files/11_model_family_comparison_implementation_guide.md` |
 | What Stage 11 checks and model runs have completed? | `Markdown files/11_model_family_comparison_results.md` |
+| What LightGBM settings will Stage 12 test, and how can one be retained? | `Markdown files/12_lightgbm_tuning_plan.md` |
+| How is the limited LightGBM tuning workflow run safely? | `Markdown files/12_lightgbm_tuning_implementation_guide.md` |
+| What Stage 12 checks and tuning runs have completed? | `Markdown files/12_lightgbm_tuning_results.md` |
+| Why compare voting classifiers and which candidates are fixed? | `Markdown files/13_voting_classifier_comparison_plan.md` |
+| How do I run voting and threshold diagnostics and find their artifacts? | `Markdown files/13_voting_classifier_comparison_implementation_guide.md` |
+| What Stage 13 checks and model comparisons have completed? | `Markdown files/13_voting_classifier_comparison_results.md` |
+| Which model and rules are fixed for final test evaluation? | `Markdown files/14_final_test_evaluation_plan.md` |
+| How does final evaluation prevent test tuning and repeated scoring? | `Markdown files/14_final_test_evaluation_implementation_guide.md` |
+| What are the final test metrics and their limitations? | `Markdown files/14_final_test_evaluation_results.md` |
+| Where are precision, recall, F1, accuracy, balanced accuracy, and confusion counts for the revised models? | [Stage 11 classification comparison](Markdown%20files/11_model_family_comparison_results.md#classification-metrics-at-each-models-maximum-f1-rule) |
+| What do the retained LightGBM's complete metrics and different review workloads mean? | [Stage 12 consolidated validation report](Markdown%20files/12_lightgbm_tuning_results.md#complete-validation-metrics-for-the-retained-lightgbm) |
 | What is the frozen original-feature benchmark? | `Markdown files/original_feature_benchmark_v1.md` |
 | What are the detailed baseline model results? | `Markdown files/baseline_model_development_results_v1.md` |
 | How do preprocessing, Feast, and automated ingestion work? | `Markdown files/02_data_pipeline_preprocessing.md`, `feature_store_handoff.md`, and `automated_data_pipeline.md` |
@@ -232,6 +265,9 @@ This keeps the workflow clean: EDA can suggest feature ideas, but the value of t
 - The nine-configuration tuning smoke test completed successfully. `rf_combined_flexible` had the highest smoke Average Precision, but no configuration was selected from smoke data.
 - The full Stage 07 training-only diagnostic found that sender-location history was the only examined entity to pass the predefined feasibility gate: 20.844% history coverage and a 15.638% relative difference between new and returning fraud rates. This is feature-engineering evidence, not validation performance; the test split remained closed.
 - The full controlled Stage 08 comparison increased validation Average Precision from 0.043949 to 0.046448, a 5.69% relative improvement. At a 5% alert volume, the history candidate captured 1,790 fraud cases instead of 1,669 and increased fraud-value recall from 2.90% to 6.80%. The candidate proceeds to later validation experiments; it is not a final or test-approved model.
+- The full Stage 12 tuning comparison retained the Stage 11 LightGBM reference at 0.046721 validation Average Precision. Two alternatives produced increases below 0.2% but reduced both fraud-count and fraud-value recall at the fixed 5% workload, so they did not pass the progression rule. The test split remained closed.
+- The full Stage 13 voting comparison also retained LightGBM. Equal-weight ensembles increased AP by less than 0.2% but found fewer fraud cases and less fraudulent value at the 5% workload. The maximum-F1 LightGBM threshold, 0.522602, flags about 70% of validation transactions; Stage 14 subsequently froze it as the primary research benchmark.
+- Stage 14 applied the frozen score threshold once to the revised test set. Test AP is 0.046860 and F1 is 0.086240. Recall is 88.3303%, but precision is only 4.5333% and 69.9707% of transactions are flagged. At a 5% batch review workload, fraud-count recall is 6.4828%. The weak validation trade-off persists in final testing.
 
 ## Running the Current Work
 
@@ -331,7 +367,23 @@ Run the isolated Stage 09 Feast smoke test with:
 This uses a temporary Feast registry and SQLite online store. It verifies
 historical/online consistency without changing the canonical feature artifacts.
 
-Run the Feast handoff integration test with:
+Run the Stage 12 limited LightGBM tuning smoke check with:
+
+```powershell
+.\masters_thesis\Scripts\python.exe ".\Code snippets\12_lightgbm_tuning_with_mlflow.py" --mode smoke
+```
+
+This reuses the completed Stage 11 decision, retained features, class weighting, and frozen split. It compares only the predeclared LightGBM configurations on validation data; smoke results cannot select a configuration and the test partition remains closed.
+
+Run the Stage 13 voting and threshold smoke check first:
+
+```powershell
+.\masters_thesis\Scripts\python.exe ".\Code snippets\13_voting_classifier_comparison_with_mlflow.py" --mode smoke
+```
+
+After checking its output, use `--mode full` for the full validation comparison. It fits LightGBM alone, an equal-weight LightGBM–CatBoost soft vote, and an equal-weight LightGBM–CatBoost–Random Forest soft vote. Each candidate records complete metrics and threshold trade-offs. Smoke mode cannot select a model; neither mode evaluates the test split or freezes a final operating rule.
+
+Run the automated test suite with:
 
 ```powershell
 .\masters_thesis\Scripts\python.exe -m unittest discover -s ".\Code snippets\tests" -v
@@ -346,9 +398,8 @@ Open the local MLflow interface on Windows with one worker:
 ## Next Steps
 
 - Add the specified MLflow images to the baseline comparison document and complete its final human review.
-- Run a small predeclared LightGBM tuning experiment using validation evidence only.
-- Freeze the final operating rule after tuning, including fraud-count and fraud-value capture.
-- Present the revised validation evidence before any final test evaluation or model registration.
+- Communicate the completed validation, voting, and final test findings, with the model's limitations.
+- Define the prototype registration policy for the exact evaluated pipeline; preserve the frozen research benchmark and do not retune against the completed test results.
 - Implement FastAPI prediction serving and persist versioned prediction logs.
 - Build batch data-quality, drift, prediction, performance, and expected-cost monitoring.
 - Add rule-based investigation/retraining recommendations without fully automated retraining.
@@ -359,7 +410,9 @@ Open the local MLflow interface on Windows with one worker:
 
 ## Status
 
-Data understanding, minimal preparation, incremental raw/clean batch ingestion, the full Feast handoff, Feast historical retrieval, the canonical baseline comparison, the controlled feature experiment, the full imbalance comparison, and the revised model-family comparison are complete. Data arrival triggers only validation and database ingestion; it does not trigger training or modify the frozen Feast `v1` baseline. The revised modelling protocol uses a stratified random split, retained behavioural features, transaction-value evaluation and class weighting selected from the full Stage 10 comparison. Stage 11 selected LightGBM for limited validation-only tuning. No model is accepted or registered, and the revised test partition remains closed. Model-independent serving and monitoring design can proceed in parallel.
+Modelling through Stage 14 final evaluation is complete. The final test was scored once at validation-frozen rules; it confirmed weak fraud discrimination and an excessive review burden at the primary benchmark. The exact fitted LightGBM pipeline and protocol are preserved in MLflow run `37b41018f28646598344fbcfe4ea4db6`. The revised test partition is now evaluated and cannot be reused for further tuning. No model is registered or approved for production. Data arrival still triggers only validation and database ingestion, rather than training or modification of the frozen Feast baseline. Registry, serving, monitoring, dashboard, and deployment components remain to be implemented.
+
+Stage 13 voting and threshold diagnostics are also complete. Neither ensemble passed the equal-workload progression rule, so LightGBM remains the development model. The full results and threshold trade-offs are documented in `Markdown files/13_voting_classifier_comparison_results.md`.
 
 The three UML diagrams in `Architecture_Diagram.drawio` describe the final target thesis prototype. They include both implemented components and the remaining serving and monitoring components listed above.
 

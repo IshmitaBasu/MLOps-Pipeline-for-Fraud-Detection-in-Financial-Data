@@ -4,7 +4,16 @@
 
 The Stage 11 runner, experiment rules and automated safeguards are implemented.
 The full Stage 10 comparison retained class weighting, which is now a verified
-and fixed input to Stage 11. No Stage 11 model experiment has been run yet.
+and fixed input to Stage 11. Both smoke and full-data model comparisons are
+complete; LightGBM was selected. The completed metrics are in the results
+document, including the classification and confusion-count tables.
+
+The shared evaluation helper now saves the maximum-F1 numerical threshold,
+accuracy, balanced accuracy, specificity, confusion counts, and alert rate
+alongside precision, recall, F1, Average Precision, and ROC-AUC in future runs.
+These fields are logged in MLflow and included in the existing result JSON and
+summary tables. The results document distinguishes reconstructed historical
+counts from values directly saved in the original runs.
 
 ## Why this is separate from Stage 06
 

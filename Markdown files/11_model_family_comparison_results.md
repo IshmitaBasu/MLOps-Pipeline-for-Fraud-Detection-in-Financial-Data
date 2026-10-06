@@ -2,9 +2,10 @@
 
 ## Status
 
-The experiment design, fixed configurations and automated safeguards are ready.
-The full Stage 10 handoff is recorded. No Stage 11 model has yet been trained,
-so no model-family conclusion has been made.
+The smoke and full-data model-family comparisons are complete. LightGBM was
+selected and subsequently retained during Stage 12 tuning. The revised test
+partition remains unevaluated. Additional classification metrics were
+documented on 5 October 2026.
 
 ## Automated test result
 
@@ -123,9 +124,43 @@ The sampled KNN result was close to random ranking and required `16.85` seconds
 to score only 25,000 validation rows. This supports its planned exclusion from
 the full-data candidate set.
 
+## Classification metrics at each model's maximum-F1 rule
+
+The six full-data candidates below were evaluated on the same 750,000 validation rows: 26,933 fraudulent and 723,067 legitimate transactions. Each model uses the score threshold that maximised its own validation F1, rather than a common review volume. These values supplement the equal-workload metrics used for model selection.
+
+| Model | Precision | Recall | F1 | Accuracy | Balanced accuracy | Alert share |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Random Forest reference | 4.5476% | 85.5159% | 0.086359 | 35.0215% | 59.3283% | 67.5293% |
+| Histogram Gradient Boosting | 4.5704% | 76.6198% | 0.086262 | 41.7093% | 58.5144% | 60.2025% |
+| LightGBM | 4.5345% | 88.4157% | 0.086266 | 32.7395% | 59.5407% | 70.0196% |
+| XGBoost | 4.5324% | 87.6843% | 0.086192 | 33.2329% | 59.4445% | 69.4736% |
+| CatBoost | 4.5594% | 85.4602% | 0.086570 | 35.2369% | 59.4132% | 67.3099% |
+| Linear SVM | 3.8545% | 60.9438% | 0.072505 | 44.0080% | 52.1605% | 56.7780% |
+
+KNN is excluded from this table because it used a different validation population for feasibility assessment. Its sampled ranking metrics remain in the earlier table.
+
+Confusion counts at those same maximum-F1 rules:
+
+| Model | True negatives | False positives | False negatives | True positives |
+| --- | ---: | ---: | ---: | ---: |
+| Random Forest reference | 239,629 | 483,438 | 3,901 | 23,032 |
+| Histogram Gradient Boosting | 292,184 | 430,883 | 6,297 | 20,636 |
+| LightGBM | 221,733 | 501,334 | 3,120 | 23,813 |
+| XGBoost | 225,631 | 497,436 | 3,317 | 23,616 |
+| CatBoost | 241,260 | 481,807 | 3,916 | 23,017 |
+| Linear SVM | 313,646 | 409,421 | 10,519 | 16,414 |
+
+Source: the full-data summary artifact `model_family_full_data_summary.json` in run `ba890331d5a149f0bb17ee1a7f63c589`, with class totals from the frozen split manifest. Precision, recall, and F1 were saved directly. Accuracy, balanced accuracy, alert share, and confusion counts were reconstructed from those full-precision metrics and class totals. TP = round(recall × fraud rows), predicted fraud = round(TP / precision), FP = predicted fraud − TP, FN = fraud rows − TP, and TN = legitimate rows − FP. These counts reproduce the saved metrics. The numerical maximum-F1 thresholds were not saved in the original runs; they cannot be recovered from the scalar metrics alone.
+
+All models have low precision. Their high recalls at maximum F1 depend on reviewing more than half of all transactions. For comparison, classifying every transaction as legitimate would produce 96.4089% accuracy and zero fraud recall. Neither high accuracy from majority-class prediction nor high recall from excessive alerts establishes an effective fraud detector.
+
+The retained LightGBM's full metric explanation, confusion matrix, and 1%, 5%, and 10% workload tables are consolidated in [Stage 12 results](12_lightgbm_tuning_results.md#complete-validation-metrics-for-the-retained-lightgbm).
+
 ## Inference
 
-LightGBM is the selected Stage 11 model family and may proceed to a small,
-predeclared validation-only tuning experiment. This selection is still not a
-final deployment claim: the absolute predictive improvement over Random Forest
-is small, and the held-out test partition remains unopened.
+LightGBM was selected during Stage 11 and retained after the completed Stage 12
+tuning comparison. The absolute predictive improvement over Random Forest is
+small, and the additional metrics confirm that fraud discrimination remains
+weak. Further threshold and voting-ensemble experiments are planned on
+validation data before the model and operating rule are frozen for final test
+evaluation.

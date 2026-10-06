@@ -15,29 +15,23 @@ import os
 from dataclasses import asdict
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
-from time import perf_counter
 from typing import Any
 
 os.environ.setdefault("LOKY_MAX_CPU_COUNT", "1")
 os.environ.setdefault("OMP_NUM_THREADS", "1")
 
 import mlflow
-import numpy as np
 import pandas as pd
-from sklearn.metrics import average_precision_score, roc_auc_score
 
 from fraud_modeling_utils import (
     DEFAULT_DATA_PATH,
     DEFAULT_FEATURE_REPO_PATH,
     PROJECT_DIR,
     TARGET_COLUMN,
-    best_f1_threshold,
-    classification_metrics,
     configure_mlflow,
     dataset_metadata,
     load_modeling_table,
     make_optional_sample,
-    predict_scores,
 )
 from model_family_comparison_utils import (
     DEFAULT_RANDOM_STATE,
@@ -51,7 +45,8 @@ from model_family_comparison_utils import (
 )
 from oversampling_experiment_utils import FEATURE_SET_NAME, MODEL_FEATURES
 from predictive_quality_utils import TEST_CODE, build_split_manifest, make_stratified_random_partition
-from sender_location_history_utils import build_development_frames, fixed_workload_table, restore_raw_source_order
+from sender_location_history_utils import build_development_frames, restore_raw_source_order
+from validation_evaluation_utils import fit_and_evaluate_validation, positive_class_weight
 
 # %% Frozen experiment definition
 RAW_DATA_PATH = PROJECT_DIR / "financial_fraud_detection_dataset.csv"
@@ -105,6 +100,7 @@ def tracked_source_files() -> list[Path]:
     return [
         PROJECT_DIR / "11_model_family_comparison_with_mlflow.py",
         PROJECT_DIR / "model_family_comparison_utils.py",
+        PROJECT_DIR / "validation_evaluation_utils.py",
         PROJECT_DIR / "sender_location_history_utils.py",
         PROJECT_DIR / "oversampling_experiment_utils.py",
         PROJECT_DIR / "fraud_modeling_utils.py",
@@ -127,17 +123,6 @@ def library_versions() -> dict[str, str]:
     return result
 
 
-def positive_weight(labels: pd.Series | np.ndarray) -> float:
-    values = np.asarray(labels, dtype=np.int8)
-    if values.ndim != 1 or not np.isin(values, [0, 1]).all():
-        raise ValueError("Training labels must be a one-dimensional binary array.")
-    fraud = int(values.sum())
-    legitimate = int(len(values) - fraud)
-    if fraud == 0 or legitimate == 0:
-        raise ValueError("Both training classes are required.")
-    return legitimate / fraud
-
-
 # %% One controlled model run
 def run_model(
     *,
@@ -155,29 +140,9 @@ def run_model(
     """Fit and evaluate one model without accepting a test frame."""
 
     pipeline = build_model_pipeline(config, positive_class_weight=class_weight_ratio, random_state=DEFAULT_RANDOM_STATE)
-    x_train = train_df[MODEL_FEATURES]
-    y_train = train_df[TARGET_COLUMN]
-    x_validation = validation_df[MODEL_FEATURES]
-    y_validation = validation_df[TARGET_COLUMN]
-
-    fit_start = perf_counter()
-    pipeline.fit(x_train, y_train)
-    training_seconds = perf_counter() - fit_start
-
-    inference_start = perf_counter()
-    validation_scores, _, score_type = predict_scores(pipeline, x_validation)
-    inference_seconds = perf_counter() - inference_start
-    if len(validation_scores) != len(validation_df) or not np.isfinite(validation_scores).all():
-        raise ValueError(f"{config.name} produced invalid validation scores.")
-
-    threshold, _ = best_f1_threshold(y_validation, validation_scores)
-    threshold_metrics = classification_metrics(y_validation, validation_scores, threshold)
-    workloads = fixed_workload_table(y_validation, validation_scores, validation_df["amount"])
-    workload_five = workloads.loc[np.isclose(workloads["requested_alert_rate"], 0.05)].iloc[0]
-    try:
-        transformed_dimensions = int(pipeline.named_steps["preprocessing"].get_feature_names_out().size)
-    except (AttributeError, ValueError):
-        transformed_dimensions = -1
+    metrics, workloads, score_type = fit_and_evaluate_validation(
+        pipeline, train_df, validation_df, feature_columns=MODEL_FEATURES, target_column=TARGET_COLUMN
+    )
 
     result = {
         "model": config.name,
@@ -186,18 +151,7 @@ def run_model(
         "full_data_candidate": bool(config.full_data_candidate),
         "feasible": True,
         "run_id": "pending",
-        "training_rows": int(len(train_df)),
-        "validation_rows": int(len(validation_df)),
-        "transformed_feature_dimensions": transformed_dimensions,
-        "validation_average_precision": float(average_precision_score(y_validation, validation_scores)),
-        "validation_roc_auc": float(roc_auc_score(y_validation, validation_scores)),
-        "validation_precision_at_max_f1": float(threshold_metrics["precision"]),
-        "validation_recall_at_max_f1": float(threshold_metrics["recall"]),
-        "validation_f1": float(threshold_metrics["f1"]),
-        "workload_5pct_fraud_count_recall": float(workload_five["fraud_count_recall"]),
-        "workload_5pct_fraud_value_recall": float(workload_five["fraud_value_recall"]),
-        "training_seconds": float(training_seconds),
-        "validation_inference_seconds": float(inference_seconds),
+        **metrics,
     }
 
     with mlflow.start_run(run_name=f"model_family_{evidence_scope}__{config.name}") as run:
@@ -207,7 +161,9 @@ def run_model(
                 "run_role": model_role,
                 "evidence_scope": evidence_scope,
                 "test_split_evaluated": "false",
-                "eligible_for_model_selection": str(evidence_scope == "full_data" and config.full_data_candidate).lower(),
+                "eligible_for_model_selection": str(
+                    evidence_scope == "full_data" and config.full_data_candidate
+                ).lower(),
             }
         )
         mlflow.log_params(
@@ -245,7 +201,8 @@ def run_model(
 
 
 def log_memory_exclusion(
-    config: ModelFamilyConfig, *, evidence_scope: str, model_role: str, error: MemoryError) -> dict[str, Any]:
+    config: ModelFamilyConfig, *, evidence_scope: str, model_role: str, error: MemoryError
+) -> dict[str, Any]:
     """Record a measured memory exclusion instead of substituting another model."""
 
     exclusion = {
@@ -327,7 +284,7 @@ def main() -> None:
     del modeling_table, partition
     gc.collect()
 
-    class_weight_ratio = positive_weight(train_df[TARGET_COLUMN])
+    class_weight_ratio = positive_class_weight(train_df[TARGET_COLUMN])
     results: list[dict[str, Any]] = []
     exclusions: list[dict[str, Any]] = []
     configs = frozen_model_family_configs()
@@ -350,7 +307,9 @@ def main() -> None:
         except MemoryError as error:
             if config.name == "random_forest_reference" or is_smoke:
                 raise
-            exclusion = log_memory_exclusion(config, evidence_scope=evidence_scope, model_role="full_data_candidate", error=error)
+            exclusion = log_memory_exclusion(
+                config, evidence_scope=evidence_scope, model_role="full_data_candidate", error=error
+            )
             exclusions.append(exclusion)
             print(f"{config.name}: excluded after a measured memory failure.")
             gc.collect()
@@ -378,7 +337,7 @@ def main() -> None:
             handoff=handoff,
             evidence_scope=evidence_scope,
             model_role="sampled_feasibility_only",
-            class_weight_ratio=positive_weight(knn_train[TARGET_COLUMN]),
+            class_weight_ratio=positive_class_weight(knn_train[TARGET_COLUMN]),
             dataset_info=dataset_info,
             feature_lineage=feature_lineage,
         )
