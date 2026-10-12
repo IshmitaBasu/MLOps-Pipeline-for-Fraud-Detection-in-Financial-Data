@@ -33,7 +33,8 @@ The workflow follows this process-model order:
 19. Stage 16 research-model registration - complete; `financial_fraud_lightgbm_research`, version 1; no production promotion
 20. Stage 17 training-only predictive-signal diagnostics - full training analysis completed; dataset-definition questions remain open
 21. Stage 18 batch monitoring and human-gated investigation rules - implemented and smoke-checked; canonical reference pending
-22. Streamlit monitoring visualization - planned
+22. Stage 19 training-only multivariate-signal diagnostic - complete; no clear incremental interaction signal
+23. Streamlit monitoring visualization - planned
 
 This order is intentional. The initial EDA happens before cleaning so that the cleaning decisions are based on evidence from the raw data. The baseline stage compares fixed non-skill, linear, and nonlinear configurations using only the original predictors. The feature experiment then keeps the selected Random Forest fixed and changes only the input features. Model-family screening, imbalance handling, and tuning were subsequently kept as separate controlled experiments.
 
@@ -70,6 +71,8 @@ This order is intentional. The initial EDA happens before cleaning so that the c
 - Implemented the Stage 08 control-versus-candidate runner with three point-in-time history features, fixed-workload fraud-value evaluation, and test-isolation safeguards.
 - Completed the full Stage 08 comparison. `sender_location_history_v1` improved validation Average Precision by 5.69% and improved fraud-count and fraud-value recall at equal alert volumes, so it is retained for later validation experiments.
 - Completed the additive `v2` Feast behavioural contract on all five million rows, with sender and sender-location entities, point-in-time state snapshots, a derived new-location flag, local SQLite materialization, and matching offline/online values for 50 checked entity rows.
+- Added a training-only multivariate-signal diagnostic with an internal development/audit split, three fixed feature groups, four predeclared interactions, a shuffled-label control, stability slices, MLflow evidence and automated leakage checks.
+- Completed the full Stage 19 diagnostic on 3.5 million frozen training rows. Real-label models exceeded the shuffled control, but the four explicit interactions added only 0.000108 AP over the supplied main fields and did not improve on the simpler core feature set.
 
 ## Current Data Artifacts
 
@@ -161,6 +164,8 @@ Code snippets/
 |-- 18_batch_monitoring_with_mlflow.py         # Reference and batch-monitoring runner
 |-- monitoring_reference_utils.py              # Training-only history preparation and reference lineage
 |-- 18_prepare_monitoring_reference.py          # Canonical-reference preparation runner
+|-- multivariate_signal_utils.py                # Stage 19 feature, split, model and stability safeguards
+|-- 19_training_multivariate_signal_diagnostics_with_mlflow.py  # Training-only multivariate diagnostic runner
 |-- requirements.txt                          # Pinned dependencies, including imbalance and boosting libraries
 |-- Markdown files/
 |   |-- 05_feature_engineering_experiment_plan.md       # Pre-run question, controls, and decision rules
@@ -197,7 +202,8 @@ Code snippets/
 |   |-- 15_research_prediction_api_results.md  # Synthetic/API checks and remaining serving limitations
 |   |-- 18_batch_monitoring_plan.md             # Monitoring scope, thresholds and evidence boundaries
 |   |-- 18_batch_monitoring_implementation_guide.md  # Commands, inputs and outputs
-|   `-- 18_batch_monitoring_results.md          # Smoke evidence and remaining reference step
+|   |-- 18_batch_monitoring_results.md          # Smoke evidence and remaining reference step
+|   `-- 19_multivariate_signal_diagnostics.md   # Purpose, safeguards, commands and results log
 |-- tests/
 |   |-- test_feature_store_handoff.py          # Feast handoff round-trip integration test
 |   |-- test_automated_data_pipeline.py        # Trigger, duplicate, failure, and separation tests
@@ -213,6 +219,7 @@ Code snippets/
 |-- tests/test_voting_classifier.py            # Real voting arithmetic and threshold/selection safeguards
 |-- tests/test_final_test_evaluation.py         # Test-history isolation and frozen-rule safeguards
 |-- tests/test_batch_monitoring.py               # Drift, label, value, decision and ledger safeguards
+|-- tests/test_multivariate_signal.py             # Multivariate feature and training-only isolation checks
 |-- Architecture_Diagram.drawio                # Component, activity, and deployment diagrams
 |-- sample_financial_fraud_detection_dataset.csv
 |-- README.md
@@ -261,6 +268,7 @@ Code snippets/
 | What does Stage 18 monitor, and which rules lead to investigation? | [Stage 18 monitoring plan](Markdown%20files/18_batch_monitoring_plan.md) |
 | How are reference profiles, CSV batches and the API ledger monitored? | [Stage 18 implementation guide](Markdown%20files/18_batch_monitoring_implementation_guide.md) |
 | Which Stage 18 checks have completed? | [Stage 18 results](Markdown%20files/18_batch_monitoring_results.md) |
+| How does the training-only multivariate-pattern check work, and how is it run? | [Stage 19 multivariate-signal diagnostic](Markdown%20files/19_multivariate_signal_diagnostics.md) |
 | Where are precision, recall, F1, accuracy, balanced accuracy, and confusion counts for the revised models? | [Stage 11 classification comparison](Markdown%20files/11_model_family_comparison_results.md#classification-metrics-at-each-models-maximum-f1-rule) |
 | What do the retained LightGBM's complete metrics and different review workloads mean? | [Stage 12 consolidated validation report](Markdown%20files/12_lightgbm_tuning_results.md#complete-validation-metrics-for-the-retained-lightgbm) |
 | What is the frozen original-feature benchmark? | `Markdown files/original_feature_benchmark_v1.md` |
@@ -452,6 +460,10 @@ Stage 18 implements aggregate [batch monitoring rules](Markdown%20files/18_batch
 
 The smoke run proves that a known shift produces a human investigation recommendation while automatic retraining remains disabled. It is not real drift or model-performance evidence. A canonical scored reference is still required, and the consumed test partition cannot be used for that purpose.
 
+## Training-only multivariate-signal investigation
+
+Stage 19 is implemented in `19_training_multivariate_signal_diagnostics_with_mlflow.py` and explained in the [single Stage 19 document](Markdown%20files/19_multivariate_signal_diagnostics.md). It uses only frozen training rows, makes a reproducible internal development/audit split, and compares prevalence, the strongest Stage 17 marginal pattern, fixed multivariate feature groups, explicit interactions and a shuffled-label control. Aggregate stability checks use four time slices and two ID-hash halves. The full run `8b3b5e25606c45d987cd6ef4dce8a657` found real but weak multivariate signal and no clear incremental interaction signal. It did not change the registered model, frozen threshold, API or completed test evidence.
+
 ## Research model registry
 
 Model registration is complete and described in [16_research_model_registration.md](Markdown%20files/16_research_model_registration.md). Version `1` is pinned by `models:/financial_fraud_lightgbm_research/1`. Its cell-based runner registers the unchanged evaluated artifact without retraining, test scoring, production promotion, or an automatic API switch. Open **Models** in the local MLflow UI to inspect it.
@@ -480,6 +492,7 @@ This script reads recorded JSON and CSV results only. It does not train models, 
 
 ## Next Steps
 
+- Preserve the completed Stage 19 aggregate evidence and use it when explaining why the dataset supports only weak fraud discrimination.
 - Add the specified MLflow images to the baseline comparison document and complete its final human review.
 - Communicate the completed validation, voting, and final test findings, with the model's limitations.
 - Extend the implemented future-online adapter's parity evidence for historical training/validation replay if that separate path is needed; never replay the consumed final test for selection.
@@ -494,7 +507,7 @@ This script reads recorded JSON and CSV results only. It does not train models, 
 
 ## Status
 
-Modelling through Stage 14 final evaluation is complete. The final test was scored once at validation-frozen rules; it confirmed weak fraud discrimination and an excessive review burden at the primary benchmark. The exact fitted LightGBM pipeline and protocol are preserved in MLflow run `37b41018f28646598344fbcfe4ea4db6`. The revised test partition is now evaluated and cannot be reused for further tuning. The unchanged artifact is registered as research model `financial_fraud_lightgbm_research`, version 1, with production approval false. Data arrival still triggers only validation and database ingestion, rather than training or modification of the frozen Feast baseline. Stage 15 implements local future-online FastAPI serving using an isolated frozen Feast state and persistent prediction ledger. Stage 18 implements batch monitoring and human-gated investigation rules; its canonical reference, registry-backed API loading, dashboard, and container deployment remain to be implemented.
+Modelling through Stage 14 final evaluation is complete. The final test was scored once at validation-frozen rules; it confirmed weak fraud discrimination and an excessive review burden at the primary benchmark. The exact fitted LightGBM pipeline and protocol are preserved in MLflow run `37b41018f28646598344fbcfe4ea4db6`. The revised test partition is now evaluated and cannot be reused for further tuning. The unchanged artifact is registered as research model `financial_fraud_lightgbm_research`, version 1, with production approval false. Data arrival still triggers only validation and database ingestion, rather than training or modification of the frozen Feast baseline. Stage 15 implements local future-online FastAPI serving using an isolated frozen history and persistent prediction ledger. Stage 18 implements batch monitoring and human-gated investigation rules; its canonical reference is pending. Stage 19 is complete and confirms real but weak multivariate signal without a useful increment from the four tested interactions. Registry-backed API loading, the dashboard, and container deployment remain to be implemented.
 
 Stage 13 voting and threshold diagnostics are also complete. Neither ensemble passed the equal-workload progression rule, so LightGBM remains the development model. The full results and threshold trade-offs are documented in `Markdown files/13_voting_classifier_comparison_results.md`.
 
