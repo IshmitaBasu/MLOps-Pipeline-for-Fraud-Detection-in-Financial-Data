@@ -1,5 +1,7 @@
 # Stage 13: Voting Classifier Comparison Plan
 
+The original soft-voting comparison below is complete. A separate validation-only hard-voting follow-up was added on 8 October 2026; it does not reopen the completed Stage 14 test evaluation.
+
 ## Question
 
 Does averaging predictions from complementary models improve fraud ranking and capture compared with the retained LightGBM model?
@@ -43,3 +45,17 @@ Each candidate is assessed at score thresholds 0.1 through 0.9 in steps of 0.1 a
 Threshold changes affect classifications but not the Average Precision of an unchanged score ranking. Missed fraud value is an exposure measure, not an established institutional loss estimate. No review cost or recovery assumptions are invented.
 
 These tables support later operating-rule selection. A final operating rule is not automatically selected from this diagnostic, and no test evaluation occurs in Stage 13.
+
+## Hard-voting follow-up
+
+The follow-up asks whether class-label agreement changes classification quality compared with probability averaging. It uses the same member configurations, class weighting, behavioural features, training-only history, and frozen development split. No additional parameter or member-threshold search is introduced.
+
+Each member votes using its native `predict` decision (the ordinary probability/class decision around 0.5, not its validation maximum-F1 threshold). Equal-weight two-member voting requires both models to predict fraud: a 1–1 tie goes to class 0, legitimate. Three-member voting flags a transaction when at least two members predict fraud. These are the documented [scikit-learn majority-voting and tie rules](https://sklearn.org/stable/modules/ensemble.html#majority-class-labels-majority-hard-voting).
+
+For example, votes of fraud, legitimate, fraud produce a fraud decision with three members. With only fraud and legitimate, the tied two-member decision is legitimate. This can reduce false alerts while also missing fraud; the direction and size must be measured.
+
+The reference is native LightGBM classification. Each ensemble also reports matched soft-argmax classification and a soft validation maximum-F1 diagnostic, computed from the same fitted members. The latter is threshold-selected on validation and is not an equal-rule or independent-performance comparison. Each ensemble fits its members once for these paired reports; historical soft-voting runs remain unchanged.
+
+Primary reports include precision, recall, F1, accuracy, balanced accuracy, specificity, confusion counts, alert share, captured/missed fraud value, and member disagreement/tie counts. Hard labels are not evaluated as continuous probabilities: no hard-label Average Precision, ROC-AUC, or arbitrary top-5% ranking is used. Different alert shares must be considered when interpreting classification differences.
+
+This is post-evaluation development evidence only. Smoke runs are technical checks, full runs are validation diagnostics, and neither can promote a candidate, change the research API's model or threshold, or repeat the consumed test evaluation. Any future change requiring independent performance evidence needs a newly designed evaluation protocol.

@@ -6,7 +6,7 @@
 
 This folder contains the current data-analysis and preparation work for my Master's thesis on building an end-to-end MLOps pipeline for financial fraud detection.
 
-The project focuses on detecting fraudulent transactions and making the machine-learning workflow reproducible, traceable, and maintainable. Data preparation, automated batch ingestion, Feast contracts, model comparisons, imbalance experiments, tuning, voting diagnostics, and final test evaluation are complete. The evaluated LightGBM uses the frozen validation maximum-F1 threshold, with separate review-workload scenarios. Test results confirm weak predictive performance. The fitted pipeline is saved for a subsequent prototype registry and serving workflow; it has not been registered or promoted.
+The project focuses on detecting fraudulent transactions and making the machine-learning workflow reproducible, traceable, and maintainable. Data preparation, automated batch ingestion, Feast contracts, model comparisons, imbalance experiments, tuning, voting diagnostics, and final test evaluation are complete. The evaluated LightGBM uses the frozen validation maximum-F1 threshold, with separate review-workload scenarios. Test results confirm weak predictive performance. The fitted pipeline is used by a technically verified local research API with isolated frozen history and prediction logs. Its unchanged artifact is also registered as a research-only MLflow version; registry-backed API loading and production promotion have not occurred.
 
 ## Current Workflow
 
@@ -28,9 +28,12 @@ The workflow follows this process-model order:
 14. Limited LightGBM tuning - complete; reference configuration retained
 15. Stage 13 validation threshold and voting-ensemble comparison - complete; LightGBM reference retained
 16. Final evaluation rules - frozen; validation maximum-F1 threshold plus three workload scenarios
-17. Stage 14 final test evaluation - complete; exact evaluated pipeline saved; model registration remains pending
-18. FastAPI serving and versioned prediction logging - planned
-19. Batch monitoring, rule-based flags, and Streamlit visualization - planned
+17. Stage 14 final test evaluation - complete; exact evaluated pipeline saved
+18. Local FastAPI research serving and versioned prediction logging - implemented and technically verified; registry integration pending
+19. Stage 16 research-model registration - complete; `financial_fraud_lightgbm_research`, version 1; no production promotion
+20. Stage 17 training-only predictive-signal diagnostics - full training analysis completed; dataset-definition questions remain open
+21. Stage 18 batch monitoring and human-gated investigation rules - implemented and smoke-checked; canonical reference pending
+22. Streamlit monitoring visualization - planned
 
 This order is intentional. The initial EDA happens before cleaning so that the cleaning decisions are based on evidence from the raw data. The baseline stage compares fixed non-skill, linear, and nonlinear configurations using only the original predictors. The feature experiment then keeps the selected Random Forest fixed and changes only the input features. Model-family screening, imbalance handling, and tuning were subsequently kept as separate controlled experiments.
 
@@ -134,6 +137,7 @@ Code snippets/
 |-- model_optimization_utils.py                # Model, imbalance, threshold, and cost helpers
 |-- 06_model_optimization_and_operational_evaluation_with_mlflow.py  # Validation-only optimisation runner
 |-- predictive_quality_utils.py                # Random-split and past-only diagnostic safeguards
+|-- frozen_training_data.py                    # Shared frozen training-only reconstruction and lineage
 |-- 07_predictive_quality_improvement_with_mlflow.py  # Training-only feature-feasibility runner
 |-- sender_location_history_utils.py           # Point-in-time history and workload helpers
 |-- 08_sender_location_history_feature_experiment_with_mlflow.py  # Controlled feature comparison
@@ -150,6 +154,13 @@ Code snippets/
 |-- 13_voting_classifier_comparison_with_mlflow.py  # Voting and threshold validation runner
 |-- final_test_evaluation_utils.py              # Frozen test protocol, history queries, and one-time receipt
 |-- 14_final_test_evaluation_with_mlflow.py     # Final evaluation at validation-frozen rules
+|-- 15_research_prediction_api.py              # Prepare, verify or serve the frozen local research model
+|-- research_prediction_api.py                 # FastAPI request validation and prediction/health endpoints
+|-- research_serving_utils.py                  # Verified frozen Feast state, model loading and prediction ledger
+|-- monitoring_utils.py                        # Data-quality, drift, delayed-label, value, and decision rules
+|-- 18_batch_monitoring_with_mlflow.py         # Reference and batch-monitoring runner
+|-- monitoring_reference_utils.py              # Training-only history preparation and reference lineage
+|-- 18_prepare_monitoring_reference.py          # Canonical-reference preparation runner
 |-- requirements.txt                          # Pinned dependencies, including imbalance and boosting libraries
 |-- Markdown files/
 |   |-- 05_feature_engineering_experiment_plan.md       # Pre-run question, controls, and decision rules
@@ -180,7 +191,13 @@ Code snippets/
 |   |-- 13_voting_classifier_comparison_results.md  # Complete voting and threshold comparison
 |   |-- 14_final_test_evaluation_plan.md  # Frozen final protocol and limitations
 |   |-- 14_final_test_evaluation_implementation_guide.md  # Execution and one-time safeguards
-|   `-- 14_final_test_evaluation_results.md  # Final held-out evidence and interpretation
+|   |-- 14_final_test_evaluation_results.md  # Final held-out evidence and interpretation
+|   |-- 15_model_serving_feature_contract.md  # Request fields, history timing, failure policy and parity checks
+|   |-- 15_research_prediction_api_implementation_guide.md  # Local startup, endpoints and privacy boundaries
+|   |-- 15_research_prediction_api_results.md  # Synthetic/API checks and remaining serving limitations
+|   |-- 18_batch_monitoring_plan.md             # Monitoring scope, thresholds and evidence boundaries
+|   |-- 18_batch_monitoring_implementation_guide.md  # Commands, inputs and outputs
+|   `-- 18_batch_monitoring_results.md          # Smoke evidence and remaining reference step
 |-- tests/
 |   |-- test_feature_store_handoff.py          # Feast handoff round-trip integration test
 |   |-- test_automated_data_pipeline.py        # Trigger, duplicate, failure, and separation tests
@@ -195,6 +212,7 @@ Code snippets/
 |-- tests/test_validation_evaluation.py        # Threshold, confusion-count, and metric reporting checks
 |-- tests/test_voting_classifier.py            # Real voting arithmetic and threshold/selection safeguards
 |-- tests/test_final_test_evaluation.py         # Test-history isolation and frozen-rule safeguards
+|-- tests/test_batch_monitoring.py               # Drift, label, value, decision and ledger safeguards
 |-- Architecture_Diagram.drawio                # Component, activity, and deployment diagrams
 |-- sample_financial_fraud_detection_dataset.csv
 |-- README.md
@@ -233,6 +251,16 @@ Code snippets/
 | Which model and rules are fixed for final test evaluation? | `Markdown files/14_final_test_evaluation_plan.md` |
 | How does final evaluation prevent test tuning and repeated scoring? | `Markdown files/14_final_test_evaluation_implementation_guide.md` |
 | What are the final test metrics and their limitations? | `Markdown files/14_final_test_evaluation_results.md` |
+| What must the API receive, what does Feast supply, and how will serving parity be verified? | `Markdown files/15_model_serving_feature_contract.md` |
+| How do I start the local research prediction API and manage its private state? | `Markdown files/15_research_prediction_api_implementation_guide.md` |
+| Which serving checks have passed, and what is still unimplemented? | `Markdown files/15_research_prediction_api_results.md` |
+| How is the evaluated model registered, and what happens when a future model changes? | [Stage 16 registration and future-version procedure](Markdown%20files/16_research_model_registration.md) |
+| How does the training-only predictive-signal investigation work? | [Stage 17 plan and run commands](Markdown%20files/17_predictive_signal_diagnostics_plan.md) |
+| Which Stage 17 checks and diagnostic runs have completed? | [Stage 17 results](Markdown%20files/17_predictive_signal_diagnostics_results.md) |
+| Where did the dataset come from, and which field definitions remain uncertain? | [Dataset source and field audit](Markdown%20files/17_dataset_source_and_field_audit.md) |
+| What does Stage 18 monitor, and which rules lead to investigation? | [Stage 18 monitoring plan](Markdown%20files/18_batch_monitoring_plan.md) |
+| How are reference profiles, CSV batches and the API ledger monitored? | [Stage 18 implementation guide](Markdown%20files/18_batch_monitoring_implementation_guide.md) |
+| Which Stage 18 checks have completed? | [Stage 18 results](Markdown%20files/18_batch_monitoring_results.md) |
 | Where are precision, recall, F1, accuracy, balanced accuracy, and confusion counts for the revised models? | [Stage 11 classification comparison](Markdown%20files/11_model_family_comparison_results.md#classification-metrics-at-each-models-maximum-f1-rule) |
 | What do the retained LightGBM's complete metrics and different review workloads mean? | [Stage 12 consolidated validation report](Markdown%20files/12_lightgbm_tuning_results.md#complete-validation-metrics-for-the-retained-lightgbm) |
 | What is the frozen original-feature benchmark? | `Markdown files/original_feature_benchmark_v1.md` |
@@ -383,10 +411,25 @@ Run the Stage 13 voting and threshold smoke check first:
 
 After checking its output, use `--mode full` for the full validation comparison. It fits LightGBM alone, an equal-weight LightGBM–CatBoost soft vote, and an equal-weight LightGBM–CatBoost–Random Forest soft vote. Each candidate records complete metrics and threshold trade-offs. Smoke mode cannot select a model; neither mode evaluates the test split or freezes a final operating rule.
 
+For the separate validation-only hard-voting follow-up, use the same runner:
+
+```powershell
+.\masters_thesis\Scripts\python.exe ".\Code snippets\13_voting_classifier_comparison_with_mlflow.py" --voting hard --mode smoke
+```
+
+After checking the smoke output, change `--mode smoke` to `--mode full`. Results go to `financial-fraud-stage-13-hard-voting-followup`. This reports native class decisions and matched soft policies without changing the frozen model, API threshold, or completed test evaluation. See the Stage 13 plan and implementation guide for the tie rule and comparison limits.
+
+The hard-voting full-data follow-up completed on 8 October 2026 (summary run `c7aadb13580746b4a58018aa8e506deb`). It did not resolve the low-precision/high-alert-volume limitation, and no model was promoted. Full metrics, matched soft policies, and confusion-matrix figures are recorded in the Stage 13 results document.
+
 Run the automated test suite with:
 
 ```powershell
-.\masters_thesis\Scripts\python.exe -m unittest discover -s ".\Code snippets\tests" -v
+Push-Location ".\Code snippets"
+try {
+    & "..\masters_thesis\Scripts\python.exe" -m unittest discover -s tests -v
+} finally {
+    Pop-Location
+}
 ```
 
 Open the local MLflow interface on Windows with one worker:
@@ -395,14 +438,55 @@ Open the local MLflow interface on Windows with one worker:
 .\masters_thesis\Scripts\mlflow.exe ui --workers 1 --backend-store-uri "sqlite:///D:/Germany/Documents/Magdeburg/Semester Documents/Sem 5/Thesis/Code snippets/mlflow_tracking.db"
 ```
 
+## Training-only predictive-signal investigation
+
+The [dataset source and field audit](Markdown%20files/17_dataset_source_and_field_audit.md) records the confirmed Aryan208 Kaggle origin, also linked by an official DuckDB example. Published negative elapsed-time values were found, but field formulas, generator details and fraud-label generation remain unverified. No values were automatically corrected and no model was changed.
+
+The training-only data investigation is implemented in `17_training_predictive_signal_diagnostics_with_mlflow.py`. See the [Stage 17 plan and commands](Markdown%20files/17_predictive_signal_diagnostics_plan.md) and [results log](Markdown%20files/17_predictive_signal_diagnostics_results.md). It extends earlier EDA with missingness, practical association sizes, bounded interactions and training-subset stability, without fitting models or changing the registry/API.
+
+The smoke run (`e495312ff9444136ba84af9b4de43bfa`) and full training run (`8912b6cc67ca47fb8b5f44d66be6ddd8`) completed on 9 October 2026. The experiment is `financial-fraud-stage-17-training-predictive-signal`. Smoke outputs are technical checks, not thesis evidence. The full run found no fraud labels among 627,581 training rows with missing time-since-last values, weak marginal associations for most original features, and modest behavioural associations. Negative elapsed-time values and unverified dataset/label definitions need clarification. Full values, limitations and four evidence figures are recorded in the results log; the frozen model and API are unchanged.
+
+## Batch monitoring
+
+Stage 18 implements aggregate [batch monitoring rules](Markdown%20files/18_batch_monitoring_plan.md) for data quality, input and prediction drift, delayed-label performance, fraud-value recall and assumption-based cost. The [implementation guide](Markdown%20files/18_batch_monitoring_implementation_guide.md) explains reference preparation, CSV monitoring and read-only API-ledger monitoring. The [results log](Markdown%20files/18_batch_monitoring_results.md) records the synthetic monitoring smoke run `fb6bf3f939f645ad89ea2bc161aacf74` and reproducible training-history smoke runs `4ef6554919034959a1aa69b8ae08a73f` and `e71177954aa04b9585d19a50b3df4f08`.
+
+The smoke run proves that a known shift produces a human investigation recommendation while automatic retraining remains disabled. It is not real drift or model-performance evidence. A canonical scored reference is still required, and the consumed test partition cannot be used for that purpose.
+
+## Research model registry
+
+Model registration is complete and described in [16_research_model_registration.md](Markdown%20files/16_research_model_registration.md). Version `1` is pinned by `models:/financial_fraud_lightgbm_research/1`. Its cell-based runner registers the unchanged evaluated artifact without retraining, test scoring, production promotion, or an automatic API switch. Open **Models** in the local MLflow UI to inspect it.
+
+The [future-version procedure](Markdown%20files/16_research_model_registration.md#registering-a-future-model-version) explains how a new candidate would be evaluated, packaged, registered, checked for feature/runtime compatibility, deliberately deployed, and rolled back. It explicitly identifies mechanisms that remain unimplemented; rerunning the current script only verifies the frozen version-1 package.
+
+Read-only verification from the thesis root:
+
+```powershell
+.\masters_thesis\Scripts\python.exe ".\Code snippets\16_register_research_model.py" --mode verify
+```
+
+## Documentation figures
+
+The result documents for stages 07–14 include training-only feature screening, validation comparisons, confusion matrices, threshold trade-offs, and final test review scenarios where saved evidence supports them. Stage 09 is explained through the architecture diagram, and Stage 15 includes the API verification screenshots. Historical reconstructed confusion counts are labelled explicitly; figures do not imply new experiments or statistical significance.
+
+The images are committed under `Markdown files/images/experiment_figures/`. Their source artifact paths and SHA-256 hashes are listed in [figure_sources.json](Markdown%20files/images/experiment_figures/figure_sources.json). Saved local MLflow artifacts are required only to regenerate them, not to read the documentation.
+
+To regenerate the figures from the thesis root:
+
+```powershell
+.\masters_thesis\Scripts\python.exe ".\Code snippets\generate_documentation_figures.py"
+```
+
+This script reads recorded JSON and CSV results only. It does not train models, score transactions, modify MLflow evidence, or repeat the final test evaluation. ROC and precision-recall curves are not fabricated from aggregate metrics.
+
 ## Next Steps
 
 - Add the specified MLflow images to the baseline comparison document and complete its final human review.
 - Communicate the completed validation, voting, and final test findings, with the model's limitations.
-- Define the prototype registration policy for the exact evaluated pipeline; preserve the frozen research benchmark and do not retune against the completed test results.
-- Implement FastAPI prediction serving and persist versioned prediction logs.
-- Build batch data-quality, drift, prediction, performance, and expected-cost monitoring.
-- Add rule-based investigation/retraining recommendations without fully automated retraining.
+- Extend the implemented future-online adapter's parity evidence for historical training/validation replay if that separate path is needed; never replay the consumed final test for selection.
+- Preserve the registered research model, frozen benchmark, and original test evidence; do not retune against the completed test results.
+- Integrate explicit research-model registration with the implemented local FastAPI serving and versioned prediction ledger.
+- Freeze a provenance-controlled scored monitoring reference without using the consumed test partition.
+- Run Stage 18 on sufficiently large future API batches and join delayed labels through a separately controlled process.
 - Build the Streamlit monitoring dashboard.
 - Package the MLflow, FastAPI, and Streamlit services for the planned local Docker deployment.
 - Add serving, monitoring, cost, registration, and end-to-end integration tests.
@@ -410,11 +494,11 @@ Open the local MLflow interface on Windows with one worker:
 
 ## Status
 
-Modelling through Stage 14 final evaluation is complete. The final test was scored once at validation-frozen rules; it confirmed weak fraud discrimination and an excessive review burden at the primary benchmark. The exact fitted LightGBM pipeline and protocol are preserved in MLflow run `37b41018f28646598344fbcfe4ea4db6`. The revised test partition is now evaluated and cannot be reused for further tuning. No model is registered or approved for production. Data arrival still triggers only validation and database ingestion, rather than training or modification of the frozen Feast baseline. Registry, serving, monitoring, dashboard, and deployment components remain to be implemented.
+Modelling through Stage 14 final evaluation is complete. The final test was scored once at validation-frozen rules; it confirmed weak fraud discrimination and an excessive review burden at the primary benchmark. The exact fitted LightGBM pipeline and protocol are preserved in MLflow run `37b41018f28646598344fbcfe4ea4db6`. The revised test partition is now evaluated and cannot be reused for further tuning. The unchanged artifact is registered as research model `financial_fraud_lightgbm_research`, version 1, with production approval false. Data arrival still triggers only validation and database ingestion, rather than training or modification of the frozen Feast baseline. Stage 15 implements local future-online FastAPI serving using an isolated frozen Feast state and persistent prediction ledger. Stage 18 implements batch monitoring and human-gated investigation rules; its canonical reference, registry-backed API loading, dashboard, and container deployment remain to be implemented.
 
 Stage 13 voting and threshold diagnostics are also complete. Neither ensemble passed the equal-workload progression rule, so LightGBM remains the development model. The full results and threshold trade-offs are documented in `Markdown files/13_voting_classifier_comparison_results.md`.
 
-The three UML diagrams in `Architecture_Diagram.drawio` describe the final target thesis prototype. They include both implemented components and the remaining serving and monitoring components listed above.
+The three UML diagrams in `Architecture_Diagram.drawio` describe the target thesis prototype and distinguish implemented workflows, local research serving, research registration, and the Stage 18 monitoring engine from pending registry-to-API integration, a canonical monitoring reference, dashboard, and Docker components. The activity diagram shows validation-only selection, a frozen model and rule, and the completed one-time final test without a feedback path into tuning. The evaluated LightGBM pipeline is a research artifact, not a production-approved champion. Both modelling histories and Feast v2 counts use the frozen training population. The implemented online adapter verifies frozen latest-state counts and rejects historical timestamps; a historical replay endpoint remains unimplemented. Its design and checks are recorded in the three Stage 15 documents.
 
 ## Author
 

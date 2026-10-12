@@ -114,6 +114,10 @@ by 15.638% in relative terms. Transactions from a sender-location combination
 without prior history had the higher fraud rate: 3.7121%, compared with 3.1316%
 when the pair had appeared earlier.
 
+![Training-only history feature screening](images/experiment_figures/07_history_screening.png)
+
+The full training partition provides enough evidence to screen sender-location history further. Grey bars mark groups with insufficient fraud evidence; a large rate difference in these sparse groups is not proof of a useful feature. The dashed lines show the initial screening gates, not statistical significance thresholds.
+
 ## Amount-deviation result
 
 The sender-relative-amount diagnostic covered 2,618,491 transactions with

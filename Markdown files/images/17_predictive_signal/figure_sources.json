@@ -1,0 +1,24 @@
+{
+  "mlflow_run_id": "8912b6cc67ca47fb8b5f44d66be6ddd8",
+  "experiment": "financial-fraud-stage-17-training-predictive-signal",
+  "scope": "training_partition_only",
+  "copy_method": "Unmodified copies of the full-run MLflow figure artifacts; no models rerun.",
+  "figures": [
+    {
+      "artifact_path": "figures/categorical_missingness_rates.png",
+      "sha256": "dee19ae3febc805b7f763da1ab8a090f247e299031b61372a5c33483d54eddc0"
+    },
+    {
+      "artifact_path": "figures/numerical_class_distributions.png",
+      "sha256": "3ef8e62170b8501262e20d1d76c1a1699a9a143025a24b8c06e28b2df95798b1"
+    },
+    {
+      "artifact_path": "figures/bounded_interaction_rates.png",
+      "sha256": "f504eb848a8e32191e0d4a23973575c348323954e4af1d80d1faeb35a64a7b30"
+    },
+    {
+      "artifact_path": "figures/missingness_stability.png",
+      "sha256": "eee514f9919c413724b63c13adfd9f79217d2bbf42acdadabc1c4f0fa466e11b"
+    }
+  ]
+}

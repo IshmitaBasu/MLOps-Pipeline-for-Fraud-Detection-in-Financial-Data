@@ -75,6 +75,10 @@ below the class-weight reference.
 
 Status: complete.
 
+![Full-data validation comparison of imbalance treatments](images/experiment_figures/10_validation_comparison.png)
+
+Green marks the retained class-weight reference. Average Precision and fraud captured at the same 5% review workload are shown together: the small ranking gains from resampling did not establish a better operational choice. These are validation results only.
+
 | Strategy | Training rows | Average Precision | ROC-AUC | Maximum-F1 precision | Maximum-F1 recall | 5% fraud-count recall | 5% fraud-value recall | Training time | MLflow run ID |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |
 | Class-weight reference | 3,500,000 | 0.046448 | 0.612248 | 4.5476% | 85.5159% | 6.6461% | 6.8003% | 1,204.0 s | `2895b10806e24b22aed35dd227d6d681` |

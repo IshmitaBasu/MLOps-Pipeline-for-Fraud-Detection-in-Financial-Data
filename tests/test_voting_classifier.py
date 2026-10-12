@@ -2,18 +2,24 @@
 
 # %% Imports
 import unittest
+import importlib.util
+from pathlib import Path
+from unittest.mock import MagicMock, patch
 
 import numpy as np
 import pandas as pd
 from sklearn.ensemble import VotingClassifier
+from sklearn.dummy import DummyClassifier
 
 from fraud_modeling_utils import CATEGORICAL_FEATURES
 from model_family_comparison_utils import FROZEN_FULL_SPLIT_HASH
 from oversampling_experiment_utils import FEATURE_SET_NAME, MODEL_NUMERIC_FEATURES
 from voting_classifier_utils import (
     CANDIDATES,
+    HARD_CANDIDATES,
     REFERENCE_MODEL,
     build_voting_candidate,
+    hard_label_metrics,
     select_voting_candidate,
     validate_stage_12_handoff,
     validation_threshold_table,
@@ -28,7 +34,7 @@ class VotingTests(unittest.TestCase):
         for column in CATEGORICAL_FEATURES:
             frame[column] = ["a", "b"] * (rows // 2)
         labels = np.array([0, 0, 0, 1] * (rows // 4))
-        for name in tuple(CANDIDATES)[1:]:
+        for name in (*tuple(CANDIDATES)[1:], *tuple(HARD_CANDIDATES)[1:]):
             with self.subTest(candidate=name):
                 model = build_voting_candidate(name, positive_class_weight=3.0)
                 self.assertIsInstance(model, VotingClassifier)
@@ -38,8 +44,101 @@ class VotingTests(unittest.TestCase):
                     updates["random_forest_reference__model__n_estimators"] = 3
                 model.set_params(**updates)
                 model.fit(frame, labels)
-                expected = np.mean([member.predict_proba(frame) for member in model.estimators_], axis=0)
-                np.testing.assert_allclose(model.predict_proba(frame), expected)
+                if model.voting == "soft":
+                    expected = np.mean([member.predict_proba(frame) for member in model.estimators_], axis=0)
+                    np.testing.assert_allclose(model.predict_proba(frame), expected)
+                else:
+                    votes = model.transform(frame)
+                    expected = (votes.sum(axis=1) > votes.shape[1] / 2).astype(int)
+                    np.testing.assert_array_equal(model.predict(frame), expected)
+                    self.assertFalse(hasattr(model, "predict_proba"))
+
+
+# %% Hard voting, decision metrics and isolated runner evidence
+class HardVotingTests(unittest.TestCase):
+    def test_two_member_tie_is_legitimate_and_three_member_majority_is_fraud(self) -> None:
+        features, labels = np.zeros((4, 1)), [0, 1, 0, 1]
+        members = [
+            ("a", DummyClassifier(strategy="constant", constant=0)),
+            ("b", DummyClassifier(strategy="constant", constant=1)),
+        ]
+        model = VotingClassifier(members, voting="hard").fit(features, labels)
+        np.testing.assert_array_equal(model.predict(features), [0, 0, 0, 0])
+        model = VotingClassifier(
+            members + [("c", DummyClassifier(strategy="constant", constant=1))], voting="hard"
+        ).fit(features, labels)
+        np.testing.assert_array_equal(model.predict(features), [1, 1, 1, 1])
+
+    def test_binary_metrics_report_confusion_and_value_without_ranking(self) -> None:
+        metrics = hard_label_metrics([0, 0, 1, 1], [0, 1, 0, 1], [10, 20, 30, 40])
+        for key in ("true_negatives", "false_positives", "false_negatives", "true_positives"):
+            self.assertEqual(metrics[key], 1)
+        self.assertEqual(metrics["f1"], 0.5)
+        self.assertEqual(metrics["accuracy"], 0.5)
+        self.assertEqual(metrics["balanced_accuracy"], 0.5)
+        self.assertAlmostEqual(metrics["fraud_value_recall"], 40 / 70)
+        self.assertEqual(metrics["missed_fraud_value"], 30)
+        self.assertNotIn("pr_auc", metrics)
+        self.assertNotIn("roc_auc", metrics)
+        zero = hard_label_metrics([0, 1], [0, 0], [0, 0])
+        self.assertEqual(zero["precision"], 0)
+        self.assertEqual(zero["fraud_value_recall"], 0)
+
+    def test_binary_metrics_reject_invalid_inputs(self) -> None:
+        cases = [
+            ([0, 1], [0.2, 0.8], [10, 20]),
+            ([0, 1], [0, 1], [10, -20]),
+            ([0, 1], [0, 1], [10, np.nan]),
+            ([0, 0], [0, 1], [10, 20]),
+            ([0, 1], [0], [10, 20]),
+            ([], [], []),
+            ([[0, 1]], [0, 1], [10, 20]),
+        ]
+        for labels, predictions, amounts in cases:
+            with self.subTest(labels=labels, predictions=predictions), self.assertRaises(ValueError):
+                hard_label_metrics(labels, predictions, amounts)
+
+    def test_hard_runner_pairs_same_members_and_cannot_promote_model(self) -> None:
+        path = Path(__file__).resolve().parents[1] / "13_voting_classifier_comparison_with_mlflow.py"
+        spec = importlib.util.spec_from_file_location("voting_runner_test", path)
+        runner = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(runner)
+        frame = pd.DataFrame({column: [0.0] * 4 for column in runner.MODEL_FEATURES})
+        frame[runner.TARGET_COLUMN] = [0, 0, 1, 1]
+        frame["amount"] = [10, 20, 30, 40]
+        model = VotingClassifier(
+            [
+                ("a", DummyClassifier(strategy="constant", constant=0)),
+                ("b", DummyClassifier(strategy="constant", constant=1)),
+            ],
+            voting="hard",
+        )
+        fake_tracking = MagicMock()
+        with (
+            patch.object(runner, "mlflow", fake_tracking),
+            patch.object(runner, "tracked_source_files", return_value=[]),
+            patch.object(runner, "build_voting_candidate", return_value=model),
+        ):
+            result = runner.run_hard_candidate(
+                "hard_vote_lgbm_catboost",
+                train_df=frame,
+                validation_df=frame,
+                split_manifest={"split_assignment_sha256": "smoke-hash"},
+                handoff={"summary_run_id": "stage12"},
+                evidence_scope="smoke_test",
+                class_weight_ratio=1,
+                dataset_info={},
+                feature_lineage={},
+            )
+        self.assertEqual(result["tie_count"], 4)
+        self.assertEqual(result["classification"]["alert_count"], 0)
+        self.assertEqual(result["policy_results"][1]["alert_count"], 0)
+        self.assertEqual(result["policy_results"][2]["alert_count"], 4)
+        self.assertFalse(result["test_split_evaluated"])
+        self.assertFalse(result["frozen_model_changed"])
+        self.assertEqual(fake_tracking.set_tags.call_args.args[0]["eligible_for_model_selection"], "false")
+        self.assertNotIn("validation_average_precision", fake_tracking.log_metrics.call_args_list[0].args[0])
+        self.assertIn("hard_voting_result.json", [call.args[1] for call in fake_tracking.log_dict.call_args_list])
 
 
 # %% Threshold evidence and validation boundaries

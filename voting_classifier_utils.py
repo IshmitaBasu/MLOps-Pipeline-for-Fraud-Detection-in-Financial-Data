@@ -20,6 +20,11 @@ CANDIDATES = {
     "soft_vote_lgbm_catboost": ("lightgbm", "catboost"),
     "soft_vote_lgbm_catboost_rf": ("lightgbm", "catboost", "random_forest_reference"),
 }
+HARD_CANDIDATES = {
+    REFERENCE_MODEL: CANDIDATES[REFERENCE_MODEL],
+    "hard_vote_lgbm_catboost": CANDIDATES["soft_vote_lgbm_catboost"],
+    "hard_vote_lgbm_catboost_rf": CANDIDATES["soft_vote_lgbm_catboost_rf"],
+}
 FIXED_THRESHOLDS = (0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9)
 
 
@@ -55,20 +60,69 @@ def validate_stage_12_handoff(summary: Mapping[str, Any]) -> dict[str, str]:
 
 # %% Candidate construction
 def build_voting_candidate(name: str, *, positive_class_weight: float) -> Any:
-    """Build actual sklearn soft voting with complete train-fitted pipelines."""
+    """Build actual sklearn voting with complete train-fitted pipelines."""
 
-    if name not in CANDIDATES:
+    candidates = HARD_CANDIDATES if name in HARD_CANDIDATES and name != REFERENCE_MODEL else CANDIDATES
+    if name not in candidates:
         raise ValueError(f"Unknown voting candidate: {name!r}.")
     configs = {config.name: config for config in frozen_model_family_configs()}
     configs["lightgbm"] = frozen_lightgbm_configs()[0].as_model_family_config()
     estimators = [
         (member, build_model_pipeline(configs[member], positive_class_weight=positive_class_weight))
-        for member in CANDIDATES[name]
+        for member in candidates[name]
     ]
     if name == REFERENCE_MODEL:
         return estimators[0][1]
     # Fit members sequentially to avoid simultaneous copies of the full dataset.
-    return VotingClassifier(estimators=estimators, voting="soft", weights=None, n_jobs=1)
+    voting = "hard" if name.startswith("hard_vote_") else "soft"
+    return VotingClassifier(estimators=estimators, voting=voting, weights=None, n_jobs=1)
+
+
+# %% Hard-label diagnostics: no ranking metrics or artificial top-k ordering
+def hard_label_metrics(labels, predictions, amounts) -> dict[str, float | int]:
+    """Measure binary decisions, without treating hard labels as probability scores."""
+    labels = np.asarray(labels)
+    predictions = np.asarray(predictions)
+    amounts = np.asarray(amounts, dtype=float)
+    if any(values.ndim != 1 for values in (labels, predictions, amounts)):
+        raise ValueError("Decision arrays must be one-dimensional.")
+    if not len(labels) or not (len(labels) == len(predictions) == len(amounts)):
+        raise ValueError("Decision arrays must have equal non-zero lengths.")
+    if not np.isin(labels, [0, 1]).all() or len(np.unique(labels)) != 2:
+        raise ValueError("Validation labels must contain both binary classes.")
+    if not np.isin(predictions, [0, 1]).all():
+        raise ValueError("Hard predictions must be binary labels, not continuous scores.")
+    if not np.isfinite(amounts).all() or (amounts < 0).any():
+        raise ValueError("Transaction amounts must be finite and non-negative.")
+    alerted = predictions == 1
+    fraud = labels == 1
+    tp = int((fraud & alerted).sum())
+    fp = int((~fraud & alerted).sum())
+    fn = int((fraud & ~alerted).sum())
+    tn = int((~fraud & ~alerted).sum())
+    recall = tp / (tp + fn)
+    specificity = tn / (tn + fp)
+    captured = float(amounts[fraud & alerted].sum())
+    missed = float(amounts[fraud & ~alerted].sum())
+    return {
+        "rows": len(labels),
+        "fraud_rows": int(fraud.sum()),
+        "precision": tp / (tp + fp) if tp + fp else 0.0,
+        "recall": recall,
+        "f1": 2 * tp / (2 * tp + fp + fn),
+        "accuracy": (tp + tn) / len(labels),
+        "balanced_accuracy": (recall + specificity) / 2,
+        "specificity": specificity,
+        "true_negatives": tn,
+        "false_positives": fp,
+        "false_negatives": fn,
+        "true_positives": tp,
+        "alert_count": tp + fp,
+        "alert_rate": (tp + fp) / len(labels),
+        "fraudulent_value_captured": captured,
+        "missed_fraud_value": missed,
+        "fraud_value_recall": captured / (captured + missed) if captured + missed else 0.0,
+    }
 
 
 # %% Threshold diagnostics

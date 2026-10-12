@@ -65,6 +65,10 @@ The full-data comparison completed on 1 October 2026 using 3,500,000 training ro
 
 Summary run: `cceb57941a914ba2b3e015573b3e34b1`
 
+![Full-data validation comparison of LightGBM tuning configurations](images/experiment_figures/12_validation_comparison.png)
+
+Green marks the retained reference. The slightly higher Average Precision of some configurations did not translate into better fraud-count and fraud-value recall at the fixed 5% workload.
+
 The smoke leader, `lgbm_leaves_63`, did not retain its advantage on the full dataset. This demonstrates why smoke values were treated only as technical evidence.
 
 `lgbm_leaves_15` and `lgbm_min_child_50` produced slightly higher Average Precision than the reference, by approximately 0.17% and 0.16% respectively. Both reduced fraud-count recall and fraud-value recall at the fixed 5% workload, so neither passed the predeclared progression rule. Every other alternative had lower Average Precision and also failed the rule.
@@ -116,6 +120,10 @@ Precision means that approximately 4.5 out of every 100 alerts correspond to act
 For context, predicting every transaction as legitimate would achieve 96.4089% accuracy while detecting zero fraud cases. Accuracy alone therefore cannot determine whether a fraud detector is useful. Balanced accuracy gives equal weight to recognising fraud and legitimate transactions.
 
 Historical reporting limitation: accuracy, balanced accuracy, and the confusion counts above were reconstructed from the saved full-precision precision and recall values and the frozen class counts. Specifically, TP = round(recall × fraud rows), predicted fraud = round(TP / precision), FP = predicted fraud − TP, FN = fraud rows − TP, and TN = legitimate rows − FP. The reconstructed counts reproduce the saved precision, recall, and F1. The original run did not save its numerical maximum-F1 threshold, and it cannot be recovered from these scalar metrics alone. The model was not retrained to produce this documentation, and historical MLflow artifacts were not changed.
+
+![Reconstructed validation confusion matrix for retained LightGBM](images/experiment_figures/12_validation_confusion_matrix.png)
+
+The counts above are shown with actual-class percentages. This historical matrix is reconstructed from saved metrics; the original numerical maximum-F1 threshold was not recorded. No model was rerun to create the image.
 
 ### Classification at fixed review workloads
 

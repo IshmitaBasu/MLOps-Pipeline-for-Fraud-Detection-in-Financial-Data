@@ -124,6 +124,10 @@ The sampled KNN result was close to random ranking and required `16.85` seconds
 to score only 25,000 validation rows. This supports its planned exclusion from
 the full-data candidate set.
 
+![Full-data validation comparison of model families](images/experiment_figures/11_validation_comparison.png)
+
+Green marks the selected LightGBM. Sampled KNN is excluded from this figure because its feasibility run used a different population and was not eligible for selection. Small score differences should not be read as demonstrated statistical superiority.
+
 ## Classification metrics at each model's maximum-F1 rule
 
 The six full-data candidates below were evaluated on the same 750,000 validation rows: 26,933 fraudulent and 723,067 legitimate transactions. Each model uses the score threshold that maximised its own validation F1, rather than a common review volume. These values supplement the equal-workload metrics used for model selection.
@@ -155,6 +159,10 @@ Source: the full-data summary artifact `model_family_full_data_summary.json` in 
 All models have low precision. Their high recalls at maximum F1 depend on reviewing more than half of all transactions. For comparison, classifying every transaction as legitimate would produce 96.4089% accuracy and zero fraud recall. Neither high accuracy from majority-class prediction nor high recall from excessive alerts establishes an effective fraud detector.
 
 The retained LightGBM's full metric explanation, confusion matrix, and 1%, 5%, and 10% workload tables are consolidated in [Stage 12 results](12_lightgbm_tuning_results.md#complete-validation-metrics-for-the-retained-lightgbm).
+
+![Reconstructed validation confusion matrices for full-data model candidates](images/experiment_figures/11_validation_confusion_matrices.png)
+
+Counts are reconstructed from saved full-precision precision, recall, and class totals, not from new predictions. Colours show percentages within each actual class. Each model uses its own maximum-F1 rule, so these matrices do not represent equal review workloads.
 
 ## Inference
 

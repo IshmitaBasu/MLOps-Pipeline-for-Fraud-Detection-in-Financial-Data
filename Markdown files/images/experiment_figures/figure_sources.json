@@ -1,0 +1,150 @@
+{
+  "purpose": "Documentation-only figures from recorded artifacts; no modelling or scoring.",
+  "figure_count": 14,
+  "figures": [
+    {
+      "image": "07_history_screening.png",
+      "description": "Training-only coverage and relative fraud-rate separation, with screening gates.",
+      "sources": [
+        {
+          "path": "mlartifacts/95a914f6b68f4faba00dc2132e6ec790/artifacts/feature_feasibility_decision.json",
+          "sha256": "0b271d666f987467d5414c6fd26c6067bd5cffc8d227f8448d6f3af53171e169"
+        }
+      ]
+    },
+    {
+      "image": "08_history_feature_comparison.png",
+      "description": "Validation AP before and after adding behavioural history.",
+      "sources": [
+        {
+          "path": "mlartifacts/72fcb6b0a5394bcea26ddd2b75a79c61/artifacts/sender_location_feature_comparison.json",
+          "sha256": "8a602ee8567a5aec2dbbb3fa671f080e5b9799d889ac828dc2e1bf6f06a86616"
+        }
+      ]
+    },
+    {
+      "image": "10_validation_comparison.png",
+      "description": "Validation AP and equal-5%-workload count/value recall.",
+      "sources": [
+        {
+          "path": "mlartifacts/7d1e57bd9c0a49a59e0898bb3c7bad21/artifacts/oversampling_full_data_summary.json",
+          "sha256": "42d61ca802cb77e79eb62c5e6cde5eeee481e852c6e06bcd0d8a9838f40720d9"
+        }
+      ]
+    },
+    {
+      "image": "11_validation_comparison.png",
+      "description": "Validation AP and equal-5%-workload count/value recall.",
+      "sources": [
+        {
+          "path": "mlartifacts/ba890331d5a149f0bb17ee1a7f63c589/artifacts/model_family_full_data_summary.json",
+          "sha256": "90bfcdc2e5b2b0b35b4be2c64a3e2a844fd3307ff253f2e29221e91b4e367f1f"
+        }
+      ]
+    },
+    {
+      "image": "11_validation_confusion_matrices.png",
+      "description": "Reconstructed validation confusion counts and row-normalised rates for full-data candidates.",
+      "sources": [
+        {
+          "path": "mlartifacts/ba890331d5a149f0bb17ee1a7f63c589/artifacts/model_family_full_data_summary.json",
+          "sha256": "90bfcdc2e5b2b0b35b4be2c64a3e2a844fd3307ff253f2e29221e91b4e367f1f"
+        }
+      ]
+    },
+    {
+      "image": "12_validation_comparison.png",
+      "description": "Validation AP and equal-5%-workload count/value recall.",
+      "sources": [
+        {
+          "path": "mlartifacts/cceb57941a914ba2b3e015573b3e34b1/artifacts/lightgbm_tuning_full_data_summary.json",
+          "sha256": "8091a305072c20f026768f0cc19a0980a7649d194cbf217b315d6d2b170e8b5a"
+        }
+      ]
+    },
+    {
+      "image": "12_validation_confusion_matrix.png",
+      "description": "Reconstructed retained-reference validation counts, not final-test evidence.",
+      "sources": [
+        {
+          "path": "mlartifacts/cceb57941a914ba2b3e015573b3e34b1/artifacts/lightgbm_tuning_full_data_summary.json",
+          "sha256": "8091a305072c20f026768f0cc19a0980a7649d194cbf217b315d6d2b170e8b5a"
+        }
+      ]
+    },
+    {
+      "image": "13_validation_comparison.png",
+      "description": "Validation AP and equal-5%-workload count/value recall.",
+      "sources": [
+        {
+          "path": "mlartifacts/5920c17849574c11b4854c3c5290bc41/artifacts/voting_full_data_summary.json",
+          "sha256": "33a5d7b9bccc0c2809689f07657fcc551ed2814717307d1987601d38b31f5e69"
+        }
+      ]
+    },
+    {
+      "image": "13_validation_confusion_matrices.png",
+      "description": "Recorded validation counts and rates for reference and soft votes.",
+      "sources": [
+        {
+          "path": "mlartifacts/5920c17849574c11b4854c3c5290bc41/artifacts/voting_full_data_summary.json",
+          "sha256": "33a5d7b9bccc0c2809689f07657fcc551ed2814717307d1987601d38b31f5e69"
+        }
+      ]
+    },
+    {
+      "image": "13_threshold_tradeoff.png",
+      "description": "Saved threshold grid: recall, alert volume and precision.",
+      "sources": [
+        {
+          "path": "mlartifacts/5920c17849574c11b4854c3c5290bc41/artifacts/voting_full_data_summary.json",
+          "sha256": "33a5d7b9bccc0c2809689f07657fcc551ed2814717307d1987601d38b31f5e69"
+        },
+        {
+          "path": "mlartifacts/cb06aff922d544d4a34651550b147e42/artifacts/validation_thresholds.csv",
+          "sha256": "515b5ceabeb712c1d633fc2f9a2baee02bb785f661aaf23d18a0f636272599fa"
+        }
+      ]
+    },
+    {
+      "image": "14_test_confusion_matrix.png",
+      "description": "Directly recorded final confusion counts and row-normalised percentages.",
+      "sources": [
+        {
+          "path": "mlartifacts/37b41018f28646598344fbcfe4ea4db6/artifacts/final_test_evaluation.json",
+          "sha256": "f6e2612d126f37d171482ba0cb0990da579fb164422ec0dafe173ba767b0d56f"
+        }
+      ]
+    },
+    {
+      "image": "14_test_review_tradeoff.png",
+      "description": "Saved final-test scenarios: alert share, precision and count/value recall.",
+      "sources": [
+        {
+          "path": "mlartifacts/37b41018f28646598344fbcfe4ea4db6/artifacts/final_test_evaluation.json",
+          "sha256": "f6e2612d126f37d171482ba0cb0990da579fb164422ec0dafe173ba767b0d56f"
+        }
+      ]
+    },
+    {
+      "image": "13_hard_validation_confusion_matrices.png",
+      "description": "Directly recorded native hard-voting validation confusion matrices.",
+      "sources": [
+        {
+          "path": "mlartifacts/c7aadb13580746b4a58018aa8e506deb/artifacts/hard_voting_full_data_summary.json",
+          "sha256": "44bc9d565f57ce46bb4f5e708271b8d6d1247a44fff296964894e8d4ef78333e"
+        }
+      ]
+    },
+    {
+      "image": "13_hard_soft_policy_comparison.png",
+      "description": "Paired native/hard, soft argmax and validation-selected soft rules, with alert burden.",
+      "sources": [
+        {
+          "path": "mlartifacts/c7aadb13580746b4a58018aa8e506deb/artifacts/hard_voting_full_data_summary.json",
+          "sha256": "44bc9d565f57ce46bb4f5e708271b8d6d1247a44fff296964894e8d4ef78333e"
+        }
+      ]
+    }
+  ]
+}

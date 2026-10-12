@@ -78,6 +78,10 @@ Average Precision is calculated with scikit-learn's `average_precision_score`. I
 
 ### Test confusion matrix
 
+![Final test confusion matrix with counts and actual-class percentages](images/experiment_figures/14_test_confusion_matrix.png)
+
+The left panel shows transaction counts; the right shows percentages within each actual class. The frozen rule detects most fraud cases, but also flags most legitimate transactions. These are the recorded one-time final test results, not validation results or a new test run.
+
 Rows are actual labels; columns are predicted labels. Fraud is the positive class.
 
 | Actual / predicted | Predicted legitimate | Predicted fraud |
@@ -122,6 +126,10 @@ These are separate fixed-proportion ranking rules. They are not fixed numerical 
 At a 5% workload, the model finds 1,746 fraud cases and misses 25,187. Fraud-count recall falls from 6.7724% in validation to 6.4828% in test, while fraud-value recall falls from 7.1674% to 7.0846%. The restricted workload sharply reduces review volume, but most fraud cases and value remain undetected.
 
 All amount totals use dataset units and represent fraud exposure. No currency, recovery rate, review cost, or institutional loss model is assumed.
+
+![Final test results at predeclared review workloads and the frozen score threshold](images/experiment_figures/14_test_review_tradeoff.png)
+
+Batch review shares of 1%, 5%, and 10% are different rules from the frozen numerical score threshold. The figure makes their review burden and fraud captured visible together. These scenarios describe the final test evidence; they must not be used to select a new rule on the consumed test set.
 
 ## Observation and thesis interpretation
 

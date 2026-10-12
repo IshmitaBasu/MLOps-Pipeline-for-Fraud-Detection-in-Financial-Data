@@ -15,8 +15,11 @@
 /data/inbox/*.csv
 /data/inbox/*.failed
 /data/fraud_pipeline.db*
-/advanced_implementation/
 __pycache__/
 *.pyc
 # Local receipt preventing repeated canonical test evaluation
 final_test_evaluation/
+# Private isolated serving state and prediction ledger
+/serving_artifacts/
+# Private aggregate monitoring runs and reference profiles
+/monitoring_runs/

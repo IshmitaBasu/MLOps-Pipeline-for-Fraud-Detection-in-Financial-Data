@@ -116,6 +116,10 @@ frozen hash before continuing.
 | Test evaluated | No |
 | Progression decision | Retain `sender_location_history_v1` for later model experiments |
 
+![Validation comparison before and after adding sender-location history](images/experiment_figures/08_history_feature_comparison.png)
+
+With the model and split held fixed, adding the selected history features increased validation Average Precision. This is evidence from the completed full-data comparison, not the smoke run or an evaluation of the test partition.
+
 ### Equal-workload validation results
 
 | Alert share | Feature group | Alerts | Fraud cases | Precision | Fraud-count recall | Fraud-value recall |

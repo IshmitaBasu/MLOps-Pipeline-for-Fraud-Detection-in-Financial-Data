@@ -1,6 +1,90 @@
 # Stage 13: Voting Classifier Comparison Results
 
-## Status
+## Hard-voting follow-up status — 8 October 2026
+
+The validation-only hard-voting option is implemented in the existing runner. It compares native LightGBM classification and two hard-voting combinations, with paired soft decisions from the same fitted members. Two-member ties resolve to legitimate; three-member votes require two fraud predictions.
+
+Both smoke and full-data hard-voting runs are complete. Hard voting produced only small changes in classification performance and did not establish a persuasive improvement over the matched soft policies. The original soft-voting evidence below, completed Stage 14 evaluation, and Stage 15 serving model remain unchanged. Execution commands and artifact names are in the implementation guide.
+
+Implementation checks: all 97 repository tests passed, including actual hard-voting estimator compatibility, two-member ties, three-member majority decisions, binary classification/value metrics, malformed-input rejection, and paired same-member reporting with model promotion disabled. These are software checks, not measurements of predictive performance.
+
+### Hard-voting smoke check
+
+Completed successfully on 8 October 2026. The deterministic 50,000-row sample produced 35,000 training, 7,500 validation, and 7,500 test rows. Only the training and validation frames were built. Validation contained 270 fraud and 7,230 legitimate transactions. The test partition was not evaluated.
+
+Experiment: `financial-fraud-stage-13-hard-voting-followup`. Summary run: `dec4c1457ce545e290fa6c31ef5d399c`. Source: `hard_voting_smoke_test_summary.json`; paired policies are also saved in `hard_soft_classification_comparison.csv`.
+
+| Native decision | Precision | Recall | F1 | Accuracy | Balanced accuracy | Alert share | MLflow run |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | --- |
+| LightGBM | 4.0853% | 17.0370% | 0.065903 | 82.6133% | 51.0496% | 15.0133% | `cb5ef03f9da047f3bed09715009cca89` |
+| Hard LightGBM + CatBoost | 4.1931% | 12.2222% | 0.062441 | 86.7867% | 50.8967% | 10.4933% | `f11cfbc5e9c04113976c79fb87a96396` |
+| Hard LightGBM + CatBoost + Random Forest | 4.1411% | 20.0000% | 0.068615 | 80.4533% | 51.3555% | 17.3867% | `545d67a09587427194db7ea0051777d9` |
+
+| Native decision | TN | FP | FN | TP | Fraud-value recall | Missed fraud value | Tied votes |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| LightGBM | 6,150 | 1,080 | 224 | 46 | 17.9232% | 72,268.11 | Not applicable |
+| Hard LightGBM + CatBoost | 6,476 | 754 | 237 | 33 | 10.9699% | 78,390.44 | 1,841 |
+| Hard LightGBM + CatBoost + Random Forest | 5,980 | 1,250 | 216 | 54 | 18.8829% | 71,423.09 | 0 |
+
+Matched soft policies use the same fitted members, not historical models or a separate training run:
+
+| Members | Soft policy | Precision | Recall | F1 | Alert share |
+| --- | --- | ---: | ---: | ---: | ---: |
+| LightGBM | Argmax at 0.5 | 4.0853% | 17.0370% | 0.065903 | 15.0133% |
+| LightGBM | Validation maximum-F1, threshold 0.211692 | 4.6351% | 89.6296% | 0.088144 | 69.6133% |
+| LightGBM + CatBoost | Argmax at 0.5 | 4.4601% | 21.1111% | 0.073643 | 17.0400% |
+| LightGBM + CatBoost | Validation maximum-F1, threshold 0.358724 | 4.6605% | 72.9630% | 0.087614 | 56.3600% |
+| LightGBM + CatBoost + Random Forest | Argmax at 0.5 | 3.8983% | 17.0370% | 0.063448 | 15.7333% |
+| LightGBM + CatBoost + Random Forest | Validation maximum-F1, threshold 0.395878 | 4.6736% | 70.0000% | 0.087622 | 53.9200% |
+
+Technical observation: the two-member strict vote generated fewer alerts but missed more fraud than its matched soft-argmax rule. The three-member vote found more fraud than its matched soft-argmax rule while issuing more alerts. The maximum-F1 soft policies used much larger alert shares and were selected on validation, so their values are not an equal-workload comparison. These sample-level outcomes are not thesis conclusions or model-selection evidence. The subsequent full validation-only run is recorded below; the frozen model, API rule, and final test receipt remain unchanged.
+
+### Full-data hard-voting comparison
+
+Completed on 8 October 2026. The frozen split contains 3,500,000 training, 750,000 validation, and 750,000 test rows. Validation contains 26,933 fraud and 723,067 legitimate transactions. The test partition was not materialised or evaluated, and the completed Stage 14 test evidence was not used to select any follow-up rule.
+
+Experiment: `financial-fraud-stage-13-hard-voting-followup`. Summary run: `c7aadb13580746b4a58018aa8e506deb`. Source: `hard_voting_full_data_summary.json`; all paired classifications are saved in `hard_soft_classification_comparison.csv`.
+
+| Native decision | Precision | Recall | F1 | Accuracy | Balanced accuracy | Alert share | MLflow run |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | --- |
+| LightGBM | 4.4898% | 93.6064% | 0.085685 | 28.2623% | 59.7173% | 74.8696% | `fcc7dd43294248a49cf95493b5490a63` |
+| Hard LightGBM + CatBoost | 4.5047% | 92.3588% | 0.085905 | 29.4163% | 59.7153% | 73.6260% | `792434936b5b4b3387c6dc0c10640b0d` |
+| Hard LightGBM + CatBoost + Random Forest | 4.5062% | 93.0828% | 0.085963 | 28.9155% | 59.8041% | 74.1788% | `527d209ea35b4a968a174ea1c5dcf26a` |
+
+| Native decision | TN | FP | FN | TP | Fraud-value recall | Missed fraud value | Tied votes |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| LightGBM | 186,756 | 536,311 | 1,722 | 25,211 | 93.4016% | 638,980.97 | Not applicable |
+| Hard LightGBM + CatBoost | 195,747 | 527,320 | 2,058 | 24,875 | 92.1663% | 758,600.68 | 19,736 |
+| Hard LightGBM + CatBoost + Random Forest | 191,796 | 531,271 | 1,863 | 25,070 | 93.0653% | 671,546.46 | 0 |
+
+The two-member ensemble disagreed on 19,736 transactions, all resolved to legitimate. The three-member ensemble had member disagreements on 71,901 transactions, with no ties possible. Compared with native LightGBM, both hard ensembles reduced false alerts but also detected fewer fraud cases and less fraud value.
+
+![Recorded full-data validation confusion matrices for hard voting](images/experiment_figures/13_hard_validation_confusion_matrices.png)
+
+Counts come directly from the full-data follow-up artifact; colours show percentages within each actual class. These are native model decisions, not maximum-F1 thresholds or equal-workload rules.
+
+Matched soft decisions were calculated from the same fitted members:
+
+| Members | Soft policy | Precision | Recall | F1 | Alert share |
+| --- | --- | ---: | ---: | ---: | ---: |
+| LightGBM | Argmax at 0.5 | 4.4898% | 93.6064% | 0.085685 | 74.8696% |
+| LightGBM | Validation maximum-F1, threshold 0.522602 | 4.5345% | 88.4157% | 0.086266 | 70.0196% |
+| LightGBM + CatBoost | Argmax at 0.5 | 4.5002% | 94.3304% | 0.085906 | 75.2731% |
+| LightGBM + CatBoost | Validation maximum-F1, threshold 0.521220 | 4.5381% | 89.7226% | 0.086392 | 70.9989% |
+| LightGBM + CatBoost + Random Forest | Argmax at 0.5 | 4.5139% | 92.5445% | 0.086079 | 73.6251% |
+| LightGBM + CatBoost + Random Forest | Validation maximum-F1, threshold 0.526465 | 4.5537% | 84.0419% | 0.086392 | 66.2761% |
+
+![Paired hard and soft validation classification comparison](images/experiment_figures/13_hard_soft_policy_comparison.png)
+
+Each member combination is fitted once for its paired reports. The soft maximum-F1 rule is selected and measured on validation, so it is a development diagnostic, not an independent or equal-alert-volume comparison. All axes start at zero; no confidence intervals or significance claims are implied.
+
+Observation: at native decisions, two-member hard voting has essentially the same F1 as its matched soft-argmax policy, but reduces false positives by 11,822 while detecting 531 fewer fraud cases. Three-member hard voting has slightly lower F1 than its matched soft-argmax policy, detecting 145 additional fraud cases at the cost of 4,008 additional false positives. Neither native hard ensemble exceeds the retained LightGBM's already recorded validation maximum-F1 value of 0.086266, although those are different rules and workloads.
+
+Interpretation: hard voting does not resolve the predictive-quality limitation. Precision remains about 4.5%, meaning roughly 95.5% of alerts are false alarms, while about 74% of transactions are flagged. The high recall is obtained at a large review burden. These point estimates do not establish statistical superiority, nor prove that the dataset lacks all useful predictive patterns. Further investigation of data quality and predictive signal is a separate question from implementing MLOps components.
+
+The follow-up is diagnostic only: no candidate was selected or promoted, no API threshold was changed, and the final test was not repeated. The full-data hard-voting investigation is complete; subsequent work can address predictive-signal diagnostics and the remaining system components without rewriting the completed test evidence.
+
+## Original soft-voting status
 
 Both smoke and full-data comparisons are complete. The full-data decision retained `lgbm_reference`; neither voting ensemble passed the progression rule. During Stage 13 the operating rule remained unfrozen and the revised test partition was unevaluated. The subsequent frozen protocol and final test results are recorded in [Stage 14 results](14_final_test_evaluation_results.md).
 
@@ -80,6 +164,10 @@ Summary run: `5920c17849574c11b4854c3c5290bc41`. Source artifact: `voting_full_d
 
 ### Classification at each candidate's maximum-F1 threshold
 
+![Full-data validation comparison of LightGBM and soft-voting candidates](images/experiment_figures/13_validation_comparison.png)
+
+Green marks the retained LightGBM. The voting candidates have marginally higher Average Precision, but capture less fraud at the same 5% review workload.
+
 | Candidate | Threshold | Precision | Recall | Accuracy | Balanced accuracy | Alert share |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
 | LightGBM | 0.522602 | 4.5345% | 88.4157% | 32.7395% | 59.5407% | 70.0196% |
@@ -93,6 +181,10 @@ Summary run: `5920c17849574c11b4854c3c5290bc41`. Source artifact: `voting_full_d
 | LightGBM + CatBoost + Random Forest | 248,631 | 474,436 | 4,298 | 22,635 | 1,608,765.16 |
 
 The two-member vote catches more fraud at its maximum-F1 threshold, but also generates 6,993 more false positives and reviews more transactions than LightGBM. The three-member vote reduces false positives but misses more fraud cases and more fraud value. F1 increases only slightly for both ensembles. Since each row uses a different alert volume, these improvements and reductions cannot replace the equal-workload comparison.
+
+![Recorded validation confusion matrices for LightGBM and voting candidates](images/experiment_figures/13_validation_confusion_matrices.png)
+
+These counts come directly from the saved full-data validation artifact. Colours show actual-class percentages. Each matrix uses that candidate's own maximum-F1 threshold and therefore a different alert volume.
 
 ### Equal review workloads
 
@@ -127,6 +219,10 @@ Threshold CSVs and confusion-matrix CSVs were saved for all three smoke candidat
 These smoke thresholds are technical examples, not final decision rules. Changing a threshold does not change AP when the score ranking stays unchanged.
 
 ### Full-data LightGBM threshold report
+
+![Validation precision, recall and alert share at recorded score thresholds](images/experiment_figures/13_threshold_tradeoff.png)
+
+Raising the threshold reduces alerts but also loses fraud detections. The marked maximum-F1 rule still flags roughly 70% of transactions. Lines connect only the recorded threshold scenarios; this is not a precision-recall curve. Precision is reported as zero when a scenario generates no alerts.
 
 The retained reference now has a directly recorded maximum-F1 threshold of `0.5226022799524157`. Its AP, precision, recall, F1, and confusion counts reproduce the Stage 12 reference results. This newly executed Stage 13 report supplies the numerical threshold missing from the original historical run; the original artifacts remain unchanged.
 
