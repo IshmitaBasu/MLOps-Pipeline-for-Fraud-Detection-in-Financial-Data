@@ -9,7 +9,7 @@ from unittest.mock import patch
 import numpy as np
 import pandas as pd
 
-from final_test_evaluation_utils import (
+from fraud_detection.evaluation.final_test import (
     FROZEN_THRESHOLD,
     STAGE_13_SUMMARY_RUN_ID,
     add_final_history_features,
@@ -17,10 +17,10 @@ from final_test_evaluation_utils import (
     freeze_final_protocol,
     reserve_final_evaluation,
 )
-from model_family_comparison_utils import FROZEN_FULL_SPLIT_HASH
-from oversampling_experiment_utils import FEATURE_SET_NAME
-from predictive_quality_utils import TRAIN_CODE, VALIDATION_CODE
-from sender_location_history_utils import HISTORY_FEATURES, add_sender_location_history_features
+from fraud_detection.modeling.model_families import FROZEN_FULL_SPLIT_HASH
+from fraud_detection.modeling.oversampling import FEATURE_SET_NAME
+from fraud_detection.diagnostics.predictive_quality import TRAIN_CODE, VALIDATION_CODE
+from fraud_detection.features.sender_location_history import HISTORY_FEATURES, add_sender_location_history_features
 
 
 # %% Frozen protocol and evaluation
@@ -69,7 +69,10 @@ class FinalProtocolTests(unittest.TestCase):
 
     def test_final_metrics_use_fixed_threshold_without_optimisation(self) -> None:
         protocol = freeze_final_protocol(self.summary(), STAGE_13_SUMMARY_RUN_ID)
-        with patch("fraud_modeling_utils.best_f1_threshold", side_effect=AssertionError("Test tuning prohibited")):
+        with patch(
+            "fraud_detection.common.modeling.best_f1_threshold",
+            side_effect=AssertionError("Test tuning prohibited"),
+        ):
             metrics, workloads = evaluate_frozen_test(
                 [0, 0, 1, 1], np.array([0.1, 0.8, 0.7, 0.4]), [10, 20, 30, 40], protocol
             )

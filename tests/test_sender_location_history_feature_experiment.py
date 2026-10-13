@@ -17,8 +17,8 @@ PROJECT_DIR = Path(__file__).resolve().parents[1]
 if str(PROJECT_DIR) not in sys.path:
     sys.path.insert(0, str(PROJECT_DIR))
 
-from predictive_quality_utils import TEST_CODE, TRAIN_CODE, VALIDATION_CODE  # noqa: E402
-from sender_location_history_utils import (  # noqa: E402
+from fraud_detection.diagnostics.predictive_quality import TEST_CODE, TRAIN_CODE, VALIDATION_CODE  # noqa: E402
+from fraud_detection.features.sender_location_history import (  # noqa: E402
     HISTORY_FEATURES,
     add_sender_location_history_features,
     candidate_progression_decision,
@@ -27,7 +27,7 @@ from sender_location_history_utils import (  # noqa: E402
 
 
 def load_stage_08_module():
-    script_path = PROJECT_DIR / "08_sender_location_history_feature_experiment_with_mlflow.py"
+    script_path = PROJECT_DIR / "stages/08_sender_location_history_feature_experiment_with_mlflow.py"
     spec = importlib.util.spec_from_file_location("stage_08_runner", script_path)
     if spec is None or spec.loader is None:
         raise RuntimeError(f"Could not load {script_path}")

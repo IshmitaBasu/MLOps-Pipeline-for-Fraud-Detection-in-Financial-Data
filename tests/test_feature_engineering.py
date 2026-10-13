@@ -15,7 +15,7 @@ sys.path.insert(0, str(PROJECT_DIR))
 
 
 def load_feature_engineering_module():
-    module_path = PROJECT_DIR / "05_feature_engineering_with_mlflow.py"
+    module_path = PROJECT_DIR / "stages/05_feature_engineering_with_mlflow.py"
     specification = importlib.util.spec_from_file_location(
         "feature_engineering_with_mlflow",
         module_path,

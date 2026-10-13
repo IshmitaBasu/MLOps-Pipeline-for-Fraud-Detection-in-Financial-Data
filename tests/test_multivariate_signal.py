@@ -6,8 +6,8 @@ import unittest
 import numpy as np
 import pandas as pd
 
-from fraud_modeling_utils import CATEGORICAL_FEATURES, NUMERIC_FEATURES
-from multivariate_signal_utils import (
+from fraud_detection.common.modeling import CATEGORICAL_FEATURES, NUMERIC_FEATURES
+from fraud_detection.diagnostics.multivariate_signal import (
     INTERACTION_FEATURES,
     add_multivariate_features,
     attach_development_only_history,
@@ -18,8 +18,8 @@ from multivariate_signal_utils import (
     interpretation_summary,
     validate_feature_sets,
 )
-from predictive_quality_utils import ID_COLUMN, TARGET_COLUMN, TIME_COLUMN
-from sender_location_history_utils import HISTORY_FEATURES
+from fraud_detection.diagnostics.predictive_quality import ID_COLUMN, TARGET_COLUMN, TIME_COLUMN
+from fraud_detection.features.sender_location_history import HISTORY_FEATURES
 
 
 def fixture(rows: int = 400) -> pd.DataFrame:

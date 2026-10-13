@@ -11,10 +11,10 @@ import pandas as pd
 from sklearn.ensemble import VotingClassifier
 from sklearn.dummy import DummyClassifier
 
-from fraud_modeling_utils import CATEGORICAL_FEATURES
-from model_family_comparison_utils import FROZEN_FULL_SPLIT_HASH
-from oversampling_experiment_utils import FEATURE_SET_NAME, MODEL_NUMERIC_FEATURES
-from voting_classifier_utils import (
+from fraud_detection.common.modeling import CATEGORICAL_FEATURES
+from fraud_detection.modeling.model_families import FROZEN_FULL_SPLIT_HASH
+from fraud_detection.modeling.oversampling import FEATURE_SET_NAME, MODEL_NUMERIC_FEATURES
+from fraud_detection.modeling.voting import (
     CANDIDATES,
     HARD_CANDIDATES,
     REFERENCE_MODEL,
@@ -99,7 +99,7 @@ class HardVotingTests(unittest.TestCase):
                 hard_label_metrics(labels, predictions, amounts)
 
     def test_hard_runner_pairs_same_members_and_cannot_promote_model(self) -> None:
-        path = Path(__file__).resolve().parents[1] / "13_voting_classifier_comparison_with_mlflow.py"
+        path = Path(__file__).resolve().parents[1] / "stages/13_voting_classifier_comparison_with_mlflow.py"
         spec = importlib.util.spec_from_file_location("voting_runner_test", path)
         runner = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(runner)

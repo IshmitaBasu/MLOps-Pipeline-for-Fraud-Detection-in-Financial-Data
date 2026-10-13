@@ -13,7 +13,7 @@ import mlflow.sklearn
 import numpy as np
 import pandas as pd
 
-from ibm_aml_baseline_utils import (
+from fraud_detection.datasets.ibm_aml_baseline import (
     CATEGORICAL_FEATURES,
     EXPECTED_SHA256,
     FEATURE_COLUMNS,
@@ -33,8 +33,8 @@ from ibm_aml_baseline_utils import (
     make_development_split,
     prepare_modeling_population,
 )
-from ibm_aml_feasibility_utils import RAW_HEADER
-from validation_evaluation_utils import positive_class_weight
+from fraud_detection.datasets.ibm_aml_feasibility import RAW_HEADER
+from fraud_detection.evaluation.validation import positive_class_weight
 
 
 def raw_row(timestamp: str, label: str = "0", *, account: str = "FROM-1", amount: str = "100.00") -> list[str]:
@@ -177,9 +177,7 @@ class ModelContractTests(unittest.TestCase):
 class DecisionTests(unittest.TestCase):
     def test_currency_amounts_remain_separate(self):
         validation = modeling_population(100)
-        validation["payment_currency"] = pd.Series(
-            np.where(np.arange(100) < 50, "US Dollar", "Euro"), dtype="category"
-        )
+        validation["payment_currency"] = pd.Series(np.where(np.arange(100) < 50, "US Dollar", "Euro"), dtype="category")
         scores = np.linspace(0.0, 1.0, 100)
         table = currency_amount_capture(validation, scores, minimum_positives=1)
         self.assertEqual(set(table.currency), {"US Dollar", "Euro"})

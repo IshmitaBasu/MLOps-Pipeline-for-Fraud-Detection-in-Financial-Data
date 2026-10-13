@@ -16,8 +16,8 @@ PROJECT_DIR = Path(__file__).resolve().parents[1]
 if str(PROJECT_DIR) not in sys.path:
     sys.path.insert(0, str(PROJECT_DIR))
 
-from predictive_quality_utils import TEST_CODE, TRAIN_CODE, VALIDATION_CODE  # noqa: E402
-from sender_location_feature_store import (  # noqa: E402
+from fraud_detection.diagnostics.predictive_quality import TEST_CODE, TRAIN_CODE, VALIDATION_CODE  # noqa: E402
+from fraud_detection.features.sender_location_store import (  # noqa: E402
     NEW_LOCATION_FEATURE,
     SENDER_COLUMN,
     SENDER_COUNT_FEATURE,

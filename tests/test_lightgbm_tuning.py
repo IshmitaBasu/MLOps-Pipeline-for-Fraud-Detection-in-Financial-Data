@@ -6,13 +6,13 @@ from __future__ import annotations
 import unittest
 from pathlib import Path
 
-from lightgbm_tuning_utils import (
+from fraud_detection.modeling.lightgbm_tuning import (
     REFERENCE_CONFIGURATION,
     frozen_lightgbm_configs,
     select_lightgbm_configuration,
     validate_stage_11_handoff,
 )
-from model_family_comparison_utils import FROZEN_FULL_SPLIT_HASH
+from fraud_detection.modeling.model_families import FROZEN_FULL_SPLIT_HASH
 
 
 # %% Configuration and handoff tests
@@ -25,7 +25,7 @@ class ConfigurationTests(unittest.TestCase):
         self.assertTrue(all(config.as_model_family_config().family == "lightgbm" for config in configs))
 
     def test_runner_has_cells_and_no_test_frame_parameter(self) -> None:
-        source = Path("12_lightgbm_tuning_with_mlflow.py").read_text(encoding="utf-8")
+        source = Path("stages/12_lightgbm_tuning_with_mlflow.py").read_text(encoding="utf-8")
         self.assertGreaterEqual(source.count("# %%"), 3)
         self.assertNotIn("test_df:", source)
         self.assertIn("The test split will not be materialised or evaluated.", source)

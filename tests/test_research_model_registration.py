@@ -13,8 +13,8 @@ import joblib
 import numpy as np
 import pandas as pd
 
-from project_io_utils import sha256_file
-from registered_research_model import FrozenResearchModel
+from fraud_detection.common.io import sha256_file
+from fraud_detection.serving.registered_model import FrozenResearchModel
 
 
 class SyntheticPipeline:
@@ -57,7 +57,7 @@ class PackageTests(unittest.TestCase):
         with TemporaryDirectory() as temporary:
             context = self.package(Path(temporary))
             Path(context.artifacts["evaluated_pipeline"]).write_bytes(b"altered")
-            with patch("registered_research_model.joblib.load") as loader, self.assertRaises(ValueError):
+            with patch("fraud_detection.serving.registered_model.joblib.load") as loader, self.assertRaises(ValueError):
                 FrozenResearchModel().load_context(context)
             loader.assert_not_called()
 
@@ -76,7 +76,7 @@ class PackageTests(unittest.TestCase):
 class RegistryTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        path = Path(__file__).resolve().parents[1] / "16_register_research_model.py"
+        path = Path(__file__).resolve().parents[1] / "stages/16_register_research_model.py"
         spec = importlib.util.spec_from_file_location("registration_runner_test", path)
         cls.runner = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(cls.runner)

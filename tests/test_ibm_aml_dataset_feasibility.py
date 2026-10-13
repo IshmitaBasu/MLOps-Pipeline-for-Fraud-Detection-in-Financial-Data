@@ -11,7 +11,7 @@ import unittest
 
 import pandas as pd
 
-from ibm_aml_feasibility_utils import (
+from fraud_detection.datasets.ibm_aml_feasibility import (
     CANONICAL_COLUMNS,
     EXPECTED_SHA256,
     RAW_HEADER,
@@ -155,9 +155,7 @@ class AggregateAuditTests(unittest.TestCase):
                 path,
                 [transaction_row("2022/09/01 00:00", "0"), transaction_row("2022/09/01 00:01", "1")],
             )
-            summary, _ = audit_ibm_aml_csv(
-                path, source_sha256=EXPECTED_SHA256, chunk_rows=1_000, row_limit=2
-            )
+            summary, _ = audit_ibm_aml_csv(path, source_sha256=EXPECTED_SHA256, chunk_rows=1_000, row_limit=2)
         self.assertEqual(summary["scope"], "smoke_prefix")
         self.assertEqual(summary["decision"]["outcome"], "not_evaluated_smoke_test")
         self.assertFalse(summary["decision"]["eligible"])

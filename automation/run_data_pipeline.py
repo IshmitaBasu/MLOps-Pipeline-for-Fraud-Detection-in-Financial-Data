@@ -19,9 +19,9 @@ PROJECT_DIR = Path(__file__).resolve().parents[1]
 if str(PROJECT_DIR) not in sys.path:
     sys.path.insert(0, str(PROJECT_DIR))
 
-from project_io_utils import sha256_file
+from fraud_detection.common.io import sha256_file
 
-DATA_PIPELINE_SCRIPT = PROJECT_DIR / "02_data_pipeline_preprocessing.py"
+DATA_PIPELINE_SCRIPT = PROJECT_DIR / "stages/02_data_pipeline_preprocessing.py"
 DEFAULT_DATA_ROOT = PROJECT_DIR / "data"
 DEFAULT_DATABASE_NAME = "fraud_pipeline.db"
 

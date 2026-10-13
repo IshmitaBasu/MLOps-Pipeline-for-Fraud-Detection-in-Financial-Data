@@ -12,7 +12,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from monitoring_utils import (
+from fraud_detection.monitoring.batch import (
     MonitoringThresholds,
     build_reference_profile,
     compare_with_reference,
@@ -22,9 +22,9 @@ from monitoring_utils import (
     population_stability_index,
     validate_scored_batch,
 )
-from monitoring_reference_utils import history_preparation_receipt, prepare_reference_history
-from oversampling_experiment_utils import MODEL_FEATURES
-from predictive_quality_utils import (
+from fraud_detection.monitoring.reference import history_preparation_receipt, prepare_reference_history
+from fraud_detection.modeling.oversampling import MODEL_FEATURES
+from fraud_detection.diagnostics.predictive_quality import (
     ID_COLUMN,
     TARGET_COLUMN,
     TIME_COLUMN,

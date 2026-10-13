@@ -17,11 +17,11 @@ from feast.types import Float64, Int64, String
 PROJECT_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_DIR))
 
-from fraud_feature_store import load_feast_training_table  # noqa: E402
+from fraud_detection.features.store import load_feast_training_table  # noqa: E402
 
 
 def load_data_pipeline_module():
-    module_path = PROJECT_DIR / "02_data_pipeline_preprocessing.py"
+    module_path = PROJECT_DIR / "stages/02_data_pipeline_preprocessing.py"
     specification = importlib.util.spec_from_file_location(
         "data_pipeline_preprocessing",
         module_path,

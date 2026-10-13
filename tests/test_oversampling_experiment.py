@@ -8,7 +8,7 @@ import unittest
 import numpy as np
 import pandas as pd
 
-from oversampling_experiment_utils import (
+from fraud_detection.modeling.oversampling import (
     MODEL_NUMERIC_FEATURES,
     StrategyConfig,
     build_fixed_random_forest,

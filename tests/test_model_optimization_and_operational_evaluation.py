@@ -17,8 +17,8 @@ import pandas as pd
 PROJECT_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_DIR))
 
-from fraud_modeling_utils import FEATURE_COLUMNS, RunResult
-from model_optimization_utils import (
+from fraud_detection.common.modeling import FEATURE_COLUMNS, RunResult
+from fraud_detection.modeling.optimization import (
     apply_training_imbalance_strategy,
     build_random_forest_tuning_pipeline,
     random_forest_tuning_configurations,
@@ -27,10 +27,7 @@ from model_optimization_utils import (
 
 
 def load_stage_06_module():
-    module_path = (
-        PROJECT_DIR
-        / "06_model_optimization_and_operational_evaluation_with_mlflow.py"
-    )
+    module_path = PROJECT_DIR / "stages/06_model_optimization_and_operational_evaluation_with_mlflow.py"
     specification = importlib.util.spec_from_file_location(
         "model_optimization_and_operational_evaluation",
         module_path,
@@ -65,10 +62,7 @@ class ModelOptimizationTest(unittest.TestCase):
                 "rf_combined_flexible",
             ],
         )
-        parameter_sets = [
-            tuple(configuration.parameters.items())
-            for configuration in configurations.values()
-        ]
+        parameter_sets = [tuple(configuration.parameters.items()) for configuration in configurations.values()]
         self.assertEqual(len(parameter_sets), len(set(parameter_sets)))
         self.assertEqual(
             dict(configurations["rf_reference"].parameters),
@@ -102,9 +96,7 @@ class ModelOptimizationTest(unittest.TestCase):
                 "is_fraud": [0] * 100 + [1] * 10,
             }
         )
-        validation_df = pd.DataFrame(
-            {"row_id": range(20), "is_fraud": [0] * 16 + [1] * 4}
-        )
+        validation_df = pd.DataFrame({"row_id": range(20), "is_fraud": [0] * 16 + [1] * 4})
         test_df = validation_df.copy()
         validation_before = validation_df.copy(deep=True)
         test_before = test_df.copy(deep=True)

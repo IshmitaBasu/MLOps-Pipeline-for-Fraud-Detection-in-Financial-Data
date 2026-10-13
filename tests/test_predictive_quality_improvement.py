@@ -12,12 +12,11 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-
 PROJECT_DIR = Path(__file__).resolve().parents[1]
 if str(PROJECT_DIR) not in sys.path:
     sys.path.insert(0, str(PROJECT_DIR))
 
-from predictive_quality_utils import (  # noqa: E402
+from fraud_detection.diagnostics.predictive_quality import (  # noqa: E402
     TARGET_COLUMN,
     build_split_manifest,
     entity_history_diagnostic,
@@ -29,7 +28,7 @@ from predictive_quality_utils import (  # noqa: E402
 
 
 def load_stage_07_module():
-    script_path = PROJECT_DIR / "07_predictive_quality_improvement_with_mlflow.py"
+    script_path = PROJECT_DIR / "stages/07_predictive_quality_improvement_with_mlflow.py"
     spec = importlib.util.spec_from_file_location("stage_07_runner", script_path)
     if spec is None or spec.loader is None:
         raise RuntimeError(f"Could not load {script_path}")
@@ -112,9 +111,7 @@ class PastOnlyHistoryTests(unittest.TestCase):
         simultaneous = pd.DataFrame(
             {
                 "transaction_id": ["first", "same-a", "same-b"],
-                "event_timestamp": pd.to_datetime(
-                    ["2025-01-01", "2025-01-02", "2025-01-02"]
-                ),
+                "event_timestamp": pd.to_datetime(["2025-01-01", "2025-01-02", "2025-01-02"]),
                 "sender_account": ["A", "A", "A"],
             }
         )
@@ -138,9 +135,7 @@ class DiagnosticApiTests(unittest.TestCase):
         training_data = pd.DataFrame(
             {
                 "transaction_id": [f"tx-{index}" for index in range(rows)],
-                "event_timestamp": pd.date_range(
-                    "2025-01-01", periods=rows, freq="min"
-                ),
+                "event_timestamp": pd.date_range("2025-01-01", periods=rows, freq="min"),
                 "sender_account": [f"s-{index % 10}" for index in range(rows)],
                 "receiver_account": [f"r-{index % 13}" for index in range(rows)],
                 "device_hash": [f"d-{index % 7}" for index in range(rows)],
@@ -156,11 +151,7 @@ class DiagnosticApiTests(unittest.TestCase):
         self.assertEqual(len(result.entity_repetition_summary), 8)
         self.assertEqual(len(result.new_vs_returning_fraud_rates), 16)
         self.assertIn("recommendation", result.feature_feasibility_decision)
-        self.assertFalse(
-            result.feature_feasibility_decision[
-                "target_used_to_construct_history_features"
-            ]
-        )
+        self.assertFalse(result.feature_feasibility_decision["target_used_to_construct_history_features"])
 
     def test_missing_returning_group_is_serialised_as_null(self) -> None:
         unique_entities = pd.DataFrame(
@@ -171,9 +162,7 @@ class DiagnosticApiTests(unittest.TestCase):
                 TARGET_COLUMN: [0, 1, 0],
             }
         )
-        _, _, decision = entity_history_diagnostic(
-            unique_entities, "sender_account", ("sender_account",)
-        )
+        _, _, decision = entity_history_diagnostic(unique_entities, "sender_account", ("sender_account",))
         self.assertIsNone(decision["relative_fraud_rate_difference"])
 
 

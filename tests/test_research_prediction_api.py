@@ -21,8 +21,8 @@ PROJECT_DIR = Path(__file__).resolve().parents[1]
 if str(PROJECT_DIR) not in sys.path:
     sys.path.insert(0, str(PROJECT_DIR))
 
-from research_prediction_api import TransactionRequest, create_app
-from research_serving_utils import (
+from fraud_detection.serving.api import TransactionRequest, create_app
+from fraud_detection.serving.service import (
     FINAL_RUN_ID,
     PROJECT,
     FeastFrozenHistory,
@@ -30,14 +30,14 @@ from research_serving_utils import (
     ServingError,
     build_state_index,
 )
-from oversampling_experiment_utils import MODEL_FEATURES
-from sender_location_feature_store import (
+from fraud_detection.modeling.oversampling import MODEL_FEATURES
+from fraud_detection.features.sender_location_store import (
     build_behaviour_feature_artifacts,
     build_behaviour_feast_objects,
     close_local_online_store,
 )
-from predictive_quality_utils import TRAIN_CODE, VALIDATION_CODE, TEST_CODE
-from final_test_evaluation_utils import FROZEN_THRESHOLD, add_final_history_features
+from fraud_detection.diagnostics.predictive_quality import TRAIN_CODE, VALIDATION_CODE, TEST_CODE
+from fraud_detection.evaluation.final_test import FROZEN_THRESHOLD, add_final_history_features
 
 
 def payload() -> dict:

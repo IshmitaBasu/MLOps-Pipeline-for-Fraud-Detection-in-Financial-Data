@@ -8,16 +8,16 @@ import unittest
 import numpy as np
 import pandas as pd
 
-from fraud_modeling_utils import CATEGORICAL_FEATURES, NUMERIC_FEATURES
-from frozen_training_data import load_training_data
-from predictive_quality_utils import (
+from fraud_detection.common.modeling import CATEGORICAL_FEATURES, NUMERIC_FEATURES
+from fraud_detection.common.training_data import load_training_data
+from fraud_detection.diagnostics.predictive_quality import (
     ID_COLUMN,
     TARGET_COLUMN,
     TIME_COLUMN,
     make_stratified_random_partition,
     stable_split_hash,
 )
-from predictive_signal_utils import (
+from fraud_detection.diagnostics.predictive_signal import (
     MISSING,
     add_training_history,
     analyse_training,

@@ -8,7 +8,7 @@ from pathlib import Path
 
 import numpy as np
 
-from model_family_comparison_utils import (
+from fraud_detection.modeling.model_families import (
     FROZEN_FULL_SPLIT_HASH,
     REFERENCE_MODEL,
     build_model_pipeline,
@@ -50,7 +50,7 @@ class ConfigurationTests(unittest.TestCase):
         self.assertEqual(pipelines["linear_svm"].named_steps["model"].class_weight, "balanced")
 
     def test_runner_has_cells_and_no_test_frame_parameter(self) -> None:
-        source = Path("11_model_family_comparison_with_mlflow.py").read_text(encoding="utf-8")
+        source = Path("stages/11_model_family_comparison_with_mlflow.py").read_text(encoding="utf-8")
         self.assertGreaterEqual(source.count("# %%"), 3)
         self.assertNotIn("test_df:", source)
         self.assertIn("The test split will not be materialised or evaluated.", source)

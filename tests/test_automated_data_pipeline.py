@@ -160,7 +160,7 @@ class AutomatedDataPipelineTest(unittest.TestCase):
     def test_automation_source_has_no_ml_pipeline_dependency(self) -> None:
         source = (PROJECT_DIR / "automation" / "run_data_pipeline.py").read_text(encoding="utf-8")
         self.assertNotIn("04_baseline_model_comparison_with_mlflow", source)
-        self.assertNotIn("fraud_modeling_utils", source)
+        self.assertNotIn("fraud_detection.common.modeling", source)
         self.assertNotIn("mlflow", source.lower())
 
 

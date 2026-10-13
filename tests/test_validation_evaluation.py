@@ -10,7 +10,7 @@ from sklearn.dummy import DummyClassifier
 from sklearn.impute import SimpleImputer
 from sklearn.pipeline import Pipeline
 
-from validation_evaluation_utils import fit_and_evaluate_validation
+from fraud_detection.evaluation.validation import fit_and_evaluate_validation
 
 
 # %% Reporting tests
@@ -19,7 +19,10 @@ class ValidationReportingTests(unittest.TestCase):
         frame = pd.DataFrame({"feature": [1, 2, 3, 4], "is_fraud": [0, 0, 1, 1], "amount": [10, 20, 30, 40]})
         pipeline = Pipeline([("preprocessing", SimpleImputer()), ("model", DummyClassifier(strategy="prior"))])
         scores = np.array([0.1, 0.8, 0.7, 0.6])
-        with patch("validation_evaluation_utils.predict_scores", return_value=(scores, 0.5, "probability")):
+        with patch(
+            "fraud_detection.evaluation.validation.predict_scores",
+            return_value=(scores, 0.5, "probability"),
+        ):
             metrics, _, _ = fit_and_evaluate_validation(
                 pipeline, frame, frame, feature_columns=["feature"], target_column="is_fraud"
             )
