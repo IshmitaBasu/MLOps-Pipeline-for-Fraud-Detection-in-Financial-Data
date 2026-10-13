@@ -35,7 +35,8 @@ The workflow follows this process-model order:
 21. Stage 18 batch monitoring and human-gated investigation rules - implemented and smoke-checked; canonical reference pending
 22. Stage 19 training-only multivariate-signal diagnostic - complete; no clear incremental interaction signal
 23. Stage 20 IBM AML dataset feasibility audit - complete; retained as a second-dataset candidate
-24. Streamlit monitoring visualization - planned
+24. Stage 21 IBM AML small baseline - full validation complete; limited signal, test remains locked
+25. Streamlit monitoring visualization - planned
 
 This order is intentional. The initial EDA happens before cleaning so that the cleaning decisions are based on evidence from the raw data. The baseline stage compares fixed non-skill, linear, and nonlinear configurations using only the original predictors. The feature experiment then keeps the selected Random Forest fixed and changes only the input features. Model-family screening, imbalance handling, and tuning were subsequently kept as separate controlled experiments.
 
@@ -75,6 +76,8 @@ This order is intentional. The initial EDA happens before cleaning so that the c
 - Added a training-only multivariate-signal diagnostic with an internal development/audit split, three fixed feature groups, four predeclared interactions, a shuffled-label control, stability slices, MLflow evidence and automated leakage checks.
 - Completed the full Stage 19 diagnostic on 3.5 million frozen training rows. Real-label models exceeded the shuffled control, but the four explicit interactions added only 0.000108 AP over the supplied main fields and did not improve on the simpler core feature set.
 - Completed the aggregate-only IBM HI-Small feasibility audit on 5,078,345 rows. All technical conditions passed, 5,177 laundering labels were present, and the dataset was retained as a second-dataset candidate rather than a replacement for the current fraud evidence.
+- Implemented the fixed Stage 21 validation-only LightGBM baseline with primary-period filtering, deterministic stratified splitting, test isolation, fixed workload and stability evidence, currency-safe amount reporting and a non-progressing smoke run.
+- Completed the Stage 21 full validation run. Average Precision was 0.006142, or 6.90 times the 0.0890% prevalence, but top-1% recall was only 9.00%; the fixed outcome is `discuss_limited_signal`, and the IBM test partition remains untouched.
 
 ## Current Data Artifacts
 
@@ -170,6 +173,8 @@ Code snippets/
 |-- 19_training_multivariate_signal_diagnostics_with_mlflow.py  # Training-only multivariate diagnostic runner
 |-- ibm_aml_feasibility_utils.py                # Stage 20 chunked quality, time and history audit helpers
 |-- 20_ibm_aml_dataset_feasibility_audit.py     # Read-only IBM HI-Small feasibility runner
+|-- ibm_aml_baseline_utils.py                   # Stage 21 population, split, model and decision safeguards
+|-- 21_ibm_aml_baseline_with_mlflow.py          # One fixed validation-only IBM LightGBM baseline
 |-- requirements.txt                          # Pinned dependencies, including imbalance and boosting libraries
 |-- Markdown files/
 |   |-- 05_feature_engineering_experiment_plan.md       # Pre-run question, controls, and decision rules
@@ -208,7 +213,8 @@ Code snippets/
 |   |-- 18_batch_monitoring_implementation_guide.md  # Commands, inputs and outputs
 |   |-- 18_batch_monitoring_results.md          # Smoke evidence and remaining reference step
 |   |-- 19_multivariate_signal_diagnostics.md   # Purpose, safeguards, commands and results log
-|   `-- 20_ibm_aml_dataset_feasibility_audit.md # Candidate scope, audit rules and complete findings
+|   |-- 20_ibm_aml_dataset_feasibility_audit.md # Candidate scope, audit rules and complete findings
+|   `-- 21_ibm_aml_baseline_plan.md              # Frozen population, model, metrics and stopping rules
 |-- tests/
 |   |-- test_feature_store_handoff.py          # Feast handoff round-trip integration test
 |   |-- test_automated_data_pipeline.py        # Trigger, duplicate, failure, and separation tests
@@ -226,6 +232,7 @@ Code snippets/
 |-- tests/test_batch_monitoring.py               # Drift, label, value, decision and ledger safeguards
 |-- tests/test_multivariate_signal.py             # Multivariate feature and training-only isolation checks
 |-- tests/test_ibm_aml_dataset_feasibility.py     # Stage 20 structure, history and decision safeguards
+|-- tests/test_ibm_aml_baseline.py                # Stage 21 boundary, split, leakage and decision safeguards
 |-- Architecture_Diagram.drawio                # Component, activity, and deployment diagrams
 |-- sample_financial_fraud_detection_dataset.csv
 |-- README.md
@@ -276,6 +283,7 @@ Code snippets/
 | Which Stage 18 checks have completed? | [Stage 18 results](Markdown%20files/18_batch_monitoring_results.md) |
 | How does the training-only multivariate-pattern check work, and how is it run? | [Stage 19 multivariate-signal diagnostic](Markdown%20files/19_multivariate_signal_diagnostics.md) |
 | Why was IBM HI-Small examined, and what did the feasibility audit conclude? | [Stage 20 IBM AML dataset feasibility audit](Markdown%20files/20_ibm_aml_dataset_feasibility_audit.md) |
+| What was fixed for the IBM AML baseline, and what did validation conclude? | [Stage 21 IBM AML baseline plan and results](Markdown%20files/21_ibm_aml_baseline_plan.md) |
 | Where are precision, recall, F1, accuracy, balanced accuracy, and confusion counts for the revised models? | [Stage 11 classification comparison](Markdown%20files/11_model_family_comparison_results.md#classification-metrics-at-each-models-maximum-f1-rule) |
 | What do the retained LightGBM's complete metrics and different review workloads mean? | [Stage 12 consolidated validation report](Markdown%20files/12_lightgbm_tuning_results.md#complete-validation-metrics-for-the-retained-lightgbm) |
 | What is the frozen original-feature benchmark? | `Markdown files/original_feature_benchmark_v1.md` |
@@ -475,7 +483,7 @@ Stage 19 is implemented in `19_training_multivariate_signal_diagnostics_with_mlf
 
 Stage 20 is described in the [IBM AML dataset feasibility audit](Markdown%20files/20_ibm_aml_dataset_feasibility_audit.md). The read-only, chunked audit verified the local IBM HI-Small file and inspected all 5,078,345 rows without exporting account identifiers or training a model. The corrected full run `5bdc8b842b5e4ac5a88925e5935ef6ea` found 5,177 laundering labels, clean structure and timestamps, and high past-only sender and receiver history coverage. All fixed technical conditions passed.
 
-The outcome is `second_dataset_candidate`, not dataset replacement. The target is synthetic money laundering rather than general transaction fraud, the raw rows require chronological sorting, and the unusually enriched late tail must be excluded using the boundary fixed before modelling. A separate baseline protocol is required before any IBM model is fitted. The existing model, registry, API, Feast contract and completed test evidence are unchanged.
+The outcome is `second_dataset_candidate`, not dataset replacement. The target is synthetic money laundering rather than general transaction fraud, the raw rows require chronological sorting, and the unusually enriched late tail is excluded using the boundary fixed before modelling. The [Stage 21 baseline protocol and results](Markdown%20files/21_ibm_aml_baseline_plan.md) record the primary-period population, stratified split, one untuned LightGBM, validation metrics and stopping rule. The successful full run `94ccbdf8542f41f88b8b9fbb6d694db2` achieved 6.90 times prevalence Average Precision and stable subgroup lifts, but top-1% recall was only 9.00%. Its outcome is `discuss_limited_signal`; the held-out IBM test remains locked. The existing model, registry, API, Feast contract and completed fraud-test evidence are unchanged.
 
 ## Research model registry
 
@@ -505,7 +513,7 @@ This script reads recorded JSON and CSV results only. It does not train models, 
 
 ## Next Steps
 
-- Define and document one small IBM AML baseline protocol before writing its modelling script; keep it independent from the completed fraud pipeline.
+- Share the completed Stage 21 validation evidence and decide whether the limited IBM signal justifies one further controlled experiment; keep its test partition locked meanwhile.
 - Preserve the completed Stage 19 aggregate evidence and use it when explaining why the dataset supports only weak fraud discrimination.
 - Add the specified MLflow images to the baseline comparison document and complete its final human review.
 - Communicate the completed validation, voting, and final test findings, with the model's limitations.
@@ -521,7 +529,7 @@ This script reads recorded JSON and CSV results only. It does not train models, 
 
 ## Status
 
-Modelling through Stage 14 final evaluation is complete. The final test was scored once at validation-frozen rules; it confirmed weak fraud discrimination and an excessive review burden at the primary benchmark. The exact fitted LightGBM pipeline and protocol are preserved in MLflow run `37b41018f28646598344fbcfe4ea4db6`. The revised test partition is now evaluated and cannot be reused for further tuning. The unchanged artifact is registered as research model `financial_fraud_lightgbm_research`, version 1, with production approval false. Data arrival still triggers only validation and database ingestion, rather than training or modification of the frozen Feast baseline. Stage 15 implements local future-online FastAPI serving using an isolated frozen history and persistent prediction ledger. Stage 18 implements batch monitoring and human-gated investigation rules; its canonical reference is pending. Stage 19 is complete and confirms real but weak multivariate signal without a useful increment from the four tested interactions. Stage 20 accepts IBM HI-Small only as a technically feasible second-dataset candidate; its baseline has not been designed or trained. Registry-backed API loading, the dashboard, and container deployment remain to be implemented.
+Modelling through Stage 14 final evaluation is complete. The final test was scored once at validation-frozen rules; it confirmed weak fraud discrimination and an excessive review burden at the primary benchmark. The exact fitted LightGBM pipeline and protocol are preserved in MLflow run `37b41018f28646598344fbcfe4ea4db6`. The revised test partition is now evaluated and cannot be reused for further tuning. The unchanged artifact is registered as research model `financial_fraud_lightgbm_research`, version 1, with production approval false. Data arrival still triggers only validation and database ingestion, rather than training or modification of the frozen Feast baseline. Stage 15 implements local future-online FastAPI serving using an isolated frozen history and persistent prediction ledger. Stage 18 implements batch monitoring and human-gated investigation rules; its canonical reference is pending. Stage 19 is complete and confirms real but weak multivariate signal without a useful increment from the four tested interactions. Stage 20 accepts IBM HI-Small only as a technically feasible second-dataset candidate. Stage 21 full validation found stable but operationally limited signal, so its test partition remains locked pending a scope decision. Registry-backed API loading, the dashboard, and container deployment remain to be implemented.
 
 Stage 13 voting and threshold diagnostics are also complete. Neither ensemble passed the equal-workload progression rule, so LightGBM remains the development model. The full results and threshold trade-offs are documented in `Markdown files/13_voting_classifier_comparison_results.md`.
 
