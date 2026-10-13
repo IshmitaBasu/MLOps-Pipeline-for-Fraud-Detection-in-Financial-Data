@@ -23,3 +23,5 @@ final_test_evaluation/
 /serving_artifacts/
 # Private aggregate monitoring runs and reference profiles
 /monitoring_runs/
+# Local candidate datasets under feasibility review
+/data_candidates/
